@@ -139,11 +139,50 @@ class NotificationServices {
     });
   }
 
-  //function to get device token on which we will send the notifications
-  Future<String> getDeviceToken() async {
-    String? token = await messaging.getToken();
-    return token!;
+  
+Future<String?> getDeviceToken() async {
+  try {
+    // Skip APNs logic entirely on simulator (no push support)
+    if (Platform.isIOS) {
+      final isSimulator = Platform.environment['SIMULATOR_DEVICE_NAME'] != null;
+      if (!isSimulator) {
+        // 1. Request APNs token first (real device only)
+        String? apnsToken = await messaging.getAPNSToken();
+
+        if (apnsToken == null) {
+          await Future.delayed(const Duration(seconds: 2));
+          apnsToken = await messaging.getAPNSToken();
+        }
+
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            print('⚠️ APNs token not available after retry');
+          }
+          // Don’t throw — just skip to FCM
+        }
+      }
+    }
+
+    // 2. Get FCM token (works on both iOS + Android)
+    final token = await messaging.getToken();
+    if (token == null) {
+      if (kDebugMode) {
+        print('⚠️ Failed to get FCM token');
+      }
+      return null;
+    }
+
+    if (kDebugMode) {
+      print('✅ FCM Token: $token');
+    }
+    return token;
+  } catch (e) {
+    if (kDebugMode) {
+      print('❌ Error getting device token: $e');
+    }
+    return null;
   }
+}
 
   void isTokenRefresh() async {
     messaging.onTokenRefresh.listen((event) {
