@@ -1,50 +1,55 @@
-import 'package:flutter_contacts/flutter_contacts.dart';
+// lib/core/services/contacts_permission_service.dart
+
+import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'storage_service.dart';   // your StorageService
+import 'package:flutter_contacts/flutter_contacts.dart';
 
-class ContactsService {
-  static const _permissionKey = 'contacts_permission_granted';
-  static StorageService? _storage;
+/// iOS-first Contacts permission service
+/// Identical UX to MicPermissionService
+class ContactsPermissionService {
+  ContactsPermissionService._();
 
-  // ------------------------------------------------------------
-  // 1. Permission flow
-  // ------------------------------------------------------------
-  static Future<bool> _ensurePermission() async {
-    final status = await Permission.contacts.status;
+  /// Check if granted right now
+  static Future<bool> isGranted() async {
+    return await Permission.contacts.isGranted;
+  }
 
-    if (status.isGranted) return true;
-    if (status.isPermanentlyDenied) {
-      await openAppSettings();
-      return false;
+  /// Request permission + fetch contacts
+  /// Returns `null` if denied, otherwise List<Map<String, String>>
+  static Future<List<Map<String, String>>?> requestAndFetch(BuildContext context) async {
+    // 1. Fast path: already granted
+    if (await isGranted()) {
+      return await _fetchContacts();
     }
 
-    final result = await Permission.contacts.request();
-    final granted = result.isGranted;
+    // 2. Request → shows iOS native dialog: "Allow" / "Don't Allow"
+    final status = await Permission.contacts.request();
 
-    // cache the result for the next app start
-    final storage = await _getStorage();
-    await storage.setBool(_permissionKey, granted);
-    return granted;
+    // 3. Handle result
+    if (status.isGranted) {
+      return await _fetchContacts();
+    } else if (status.isPermanentlyDenied) {
+      if (context.mounted) {
+        _showSnack(
+          context,
+          'Please enable Contacts in Settings → Maya → Contacts',
+          showAction: true,
+        );
+      }
+      return null;
+    } else {
+      if (context.mounted) {
+        _showSnack(
+          context,
+          'Contacts access needed to sync. Tap again to allow.',
+        );
+      }
+      return null;
+    }
   }
 
-  static Future<bool> hasPermission() async {
-    final storage = await _getStorage();
-    final cached = await storage.getBool(_permissionKey) ?? false;
-    if (!cached) return false;
-
-    // double-check the OS (cached value could be stale)
-    return (await Permission.contacts.status).isGranted;
-  }
-
-  // ------------------------------------------------------------
-  // 2. Safe contacts fetch
-  // ------------------------------------------------------------
-  static Future<List<Map<String, String>>?> fetchContactsSafely() async {
-    final granted = await _ensurePermission();
-    if (!granted) return null;               // caller must handle denial
-
+  /// Internal: fetch contacts after permission
+  static Future<List<Map<String, String>>?> _fetchContacts() async {
     try {
       final contacts = await FlutterContacts.getContacts(
         withProperties: true,
@@ -58,25 +63,36 @@ class ContactsService {
                 'phone': c.phones.first.number ?? '',
               })
           .toList();
-    } on Exception catch (e) {
-      // This should never happen if permission was granted,
-      // but we guard anyway.
-      print('Unexpected contacts error: $e');
+    } catch (e) {
+      debugPrint('Contacts fetch error: $e');
       return null;
     }
   }
 
-  // ------------------------------------------------------------
-  // 3. Storage helper (lazy init)
-  // ------------------------------------------------------------
-  static Future<StorageService> _getStorage() async {
-    _storage ??= await _initStorage();
-    return _storage!;
-  }
-
-  static Future<StorageService> _initStorage() async {
-    final secure = const FlutterSecureStorage();
-    final prefs = await SharedPreferences.getInstance();
-    return StorageServiceImpl(secure, prefs);
+  // SnackBar helper — 100% same as MicPermissionService
+  static void _showSnack(
+    BuildContext context,
+    String message, {
+    bool showAction = false,
+  }) {
+    if (!context.mounted) return;
+    try {
+      final scaffold = ScaffoldMessenger.maybeOf(context);
+      scaffold?.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: Duration(seconds: showAction ? 6 : 3),
+          behavior: SnackBarBehavior.floating,
+          action: showAction
+              ? SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                )
+              : null,
+        ),
+      );
+    } catch (e) {
+      debugPrint('SnackBar error: $e');
+    }
   }
 }

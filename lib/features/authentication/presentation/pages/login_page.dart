@@ -20,12 +20,10 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController(text: 'angadquickadpro@gmail.com');
   final _passwordController = TextEditingController(text:'Prio12345');
   bool _obscurePassword = true;
-  late final ContactsService _commService;
 
   @override
   void initState() {
     super.initState();
-    _commService = ContactsService();
   }
 
   @override

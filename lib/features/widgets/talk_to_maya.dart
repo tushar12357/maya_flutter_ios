@@ -35,6 +35,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _checkInitialPermission();
     _orbController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -136,65 +137,77 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _onStart() async {
-    bool granted = await MicrophonePermissionHandler.requestPermission();
-    if (!granted) {
-      if (mounted) {
-        setState(() {
-          _currentTranscriptChunk = 'Microphone permission denied';
-        });
-      }
-      return;
-    }
+Future<void> _checkInitialPermission() async {
+  final granted = await MicPermissionService.isGranted();
+  if (mounted && !granted) {
+    setState(() {
+      _currentTranscriptChunk = 'Tap to grant microphone access';
+    });
+  }
+}
 
+Future<void> _onStart() async {
+  // -------------------------------------------------------------
+  // 1. Ask for mic permission (new logic)
+  // -------------------------------------------------------------
+  final granted = await MicPermissionService.request(context);
+  if (!granted) {
     if (mounted) {
       setState(() {
-        _isConnecting = true;
-        _currentTranscriptChunk = '';
-        _isMicMuted = false;
-        _isSpeakerMuted = false;
+        _currentTranscriptChunk = 'Microphone permission required';
       });
     }
-    _orbController?.forward(from: 0.0);
-    _pulseController?.repeat();
+    return;
+  }
 
-    try {
-      final payload = _apiClient.prepareStartThunderPayload('main');
-      final response = await _apiClient.startThunder(payload['agent_type']);
-      if (response['statusCode'] == 200) {
-        final data = response['data']['data'];
-        String joinUrl = data['joinUrl'];
+  // -------------------------------------------------------------
+  // 2. Permission OK → continue with the existing flow
+  // -------------------------------------------------------------
+  if (mounted) {
+    setState(() {
+      _isConnecting = true;
+      _currentTranscriptChunk = '';
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
+    });
+  }
 
-        await _session!.joinCall(joinUrl);
-        _session!.micMuted = _isMicMuted;
-        _session!.speakerMuted = _isSpeakerMuted;
-        if (mounted) {
-          setState(() {
-            _isListening = true;
-            _isConnecting = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _currentTranscriptChunk =
-                'Error starting session: ${response['statusCode']}';
-            _isConnecting = false;
-          });
-        }
-        _onStop();
-      }
-    } catch (e) {
+  _orbController?.forward(from: 0.0);
+  _pulseController?.repeat();
+
+  try {
+    final payload = _apiClient.prepareStartThunderPayload('main');
+    final response = await _apiClient.startThunder(payload['agent_type']);
+
+    if (response['statusCode'] == 200) {
+      final joinUrl = response['data']['data']['joinUrl'];
+      await _session!.joinCall(joinUrl);
+      _session!.micMuted = _isMicMuted;
+      _session!.speakerMuted = _isSpeakerMuted;
+
       if (mounted) {
         setState(() {
-          _currentTranscriptChunk = 'Error: $e';
+          _isListening = true;
           _isConnecting = false;
         });
       }
-      _onStop();
+    } else {
+      _handleError('Error starting session: ${response['statusCode']}');
     }
+  } catch (e) {
+    _handleError('Error: $e');
   }
+}
 
+void _handleError(String msg) {
+  if (mounted) {
+    setState(() {
+      _currentTranscriptChunk = msg;
+      _isConnecting = false;
+    });
+  }
+  _onStop();
+}
   void _onStop() {
     if (_session != null) {
       _session!.micMuted = true;

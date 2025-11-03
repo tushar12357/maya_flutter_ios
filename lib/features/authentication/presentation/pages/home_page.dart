@@ -313,30 +313,27 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   // Contacts sync – skip if empty
   // -----------------------------------------------------------------------
   Future<void> _initializeAndSyncContacts() async {
-    try {
-      final contacts = await ContactsService.fetchContactsSafely();
-      if (contacts == null) {
-        _showContactsPermissionDialog();
-        return;
-      }
-
-      // Skip API call if no contacts
-      if (contacts.isEmpty) {
-        _showSnack('No contacts to sync');
-        return;
-      }
-
-      final payload = _apiClient.prepareSyncContactsPayload(contacts);
-      final response = await _apiClient.syncContacts(payload);
-      final msg = response['statusCode'] == 200
-          ? 'Contacts synced successfully'
-          : 'Failed to sync contacts: ${response['data']}';
-      _showSnack(msg);
-    } catch (e) {
-      // _showSnack('Error syncing contacts: $e');
-    }
+  final contacts = await ContactsPermissionService.requestAndFetch(context);
+  
+  if (contacts == null) {
+    // User denied → UI already handled by service
+    return;
   }
 
+  if (contacts.isEmpty) {
+    _showSnack('No contacts to sync');
+    return;
+  }
+
+  final payload = _apiClient.prepareSyncContactsPayload(contacts);
+  final response = await _apiClient.syncContacts(payload);
+  
+  final msg = response['statusCode'] == 200
+      ? 'Contacts synced successfully'
+      : 'Failed to sync contacts: ${response['data']}';
+  
+  _showSnack(msg);
+}
   void _showContactsPermissionDialog({bool permanent = false}) {
     showDialog(
       context: context,
