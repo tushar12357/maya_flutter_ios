@@ -56,5 +56,11 @@
 	<string>This app needs access to contacts to sync them.</string>
 	<key>NSMicrophoneUsageDescription</key>
 <string>Maya needs microphone access to listen to your voice and have a conversation.</string>
+<key>NSCameraUsageDescription</key>
+<string>This app needs camera access for capturing photos or scanning.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs access to your photo library to select or upload photos.</string>
+
 </dict>
 </plist>
