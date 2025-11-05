@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:Maya/core/network/api_client.dart';
 
 class TaskDetail {
@@ -104,13 +105,14 @@ class _TasksPageState extends State<TasksPage> {
         final List<dynamic> taskList =
             data['data']?['sessions'] as List<dynamic>? ?? [];
         setState(() {
-          final newTasks = taskList.map((json) => TaskDetail.fromJson(json)).toList();
+          final newTasks =
+              taskList.map((json) => TaskDetail.fromJson(json)).toList();
           if (page == 1) {
             tasks = newTasks;
           } else {
             tasks.addAll(newTasks);
           }
-          hasMore = newTasks.isNotEmpty; // Assume no more data if empty
+          hasMore = newTasks.isNotEmpty;
           currentPage = page;
           isLoading = false;
           isLoadingMore = false;
@@ -141,84 +143,150 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
-  Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'succeeded':
-      case 'completed':
-        return const Color(0xFF10B981);
-      case 'failed':
-        return const Color(0xFFEF4444);
-      case 'approval_pending':
-        return const Color(0xFF3B82F6);
-      case 'pending':
-      default:
-        return const Color(0xFFF59E0B);
-    }
+  String _getFilterStatus(String status) {
+    final lower = status.toLowerCase();
+    if (lower == 'succeeded' || lower == 'completed') return 'completed';
+    if (lower == 'failed') return 'failed';
+    return 'pending'; // includes approval_pending, etc.
   }
 
-  Widget getStatusBadge(String status) {
-    final statusConfig = {
-      'succeeded': {
-        'label': 'Completed',
-        'icon': Icons.check_circle,
-        'bgColor': const Color(0xFF10B981).withOpacity(0.2),
-        'borderColor': const Color(0xFF10B981).withOpacity(0.3),
-        'textColor': const Color(0xFF10B981),
-      },
-      'completed': {
-        'label': 'Completed',
-        'icon': Icons.check_circle,
-        'bgColor': const Color(0xFF10B981).withOpacity(0.2),
-        'borderColor': const Color(0xFF10B981).withOpacity(0.3),
-        'textColor': const Color(0xFF10B981),
-      },
-      'pending': {
-        'label': 'In Progress',
-        'bgColor': const Color(0xFFF59E0B).withOpacity(0.2),
-        'borderColor': const Color(0xFFF59E0B).withOpacity(0.3),
-        'textColor': const Color(0xFFF59E0B),
-        'icon': Icons.access_time,
-      },
-      'failed': {
-        'label': 'Failed',
-        'bgColor': const Color(0xFFEF4444).withOpacity(0.2),
-        'borderColor': const Color(0xFFEF4444).withOpacity(0.3),
-        'textColor': const Color(0xFFEF4444),
-        'icon': Icons.error_outline,
-      },
-      'approval_pending': {
-        'label': 'Needs Approval',
-        'bgColor': const Color(0xFF3B82F6).withOpacity(0.2),
-        'borderColor': const Color(0xFF3B82F6).withOpacity(0.3),
-        'textColor': const Color(0xFF3B82F6),
-        'icon': Icons.warning_amber,
-      },
-    };
+  @override
+  Widget build(BuildContext context) {
+    final filteredTasks = tasks.where((task) {
+      if (selectedFilter == 'all') return true;
+      return _getFilterStatus(task.status) == selectedFilter;
+    }).toList();
 
-    final config =
-        statusConfig[status.toLowerCase()] ?? statusConfig['pending']!;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: config['bgColor'] as Color,
-        border: Border.all(color: config['borderColor'] as Color),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Scaffold(
+      body: Stack(
         children: [
-          Icon(
-            config['icon'] as IconData,
-            size: 14,
-            color: config['textColor'] as Color,
+          // Background matching splash page
+          Container(color: const Color(0xFF111827)),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x992A57E8), // #2A57E8 at 60%
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
-          const SizedBox(width: 4),
-          Text(
-            config['label'] as String,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: config['textColor'] as Color,
+          
+          SafeArea(
+            child: Column(
+              children: [
+                // Tasks section
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Tasks',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Filter chips
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('all', 'All Tasks'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('completed', 'Completed'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('pending', 'Pending'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('failed', 'Failed'),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Tasks list
+                Expanded(
+                  child: isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        )
+                      : errorMessage != null
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    errorMessage!,
+                                    style: const TextStyle(
+                                      color: Color(0xFFEF4444),
+                                      fontSize: 16,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: () => fetchTasks(page: 1),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF3B82F6),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : filteredTasks.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No tasks found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white60,
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                                  itemCount: filteredTasks.length +
+                                      (isLoadingMore ? 1 : 0),
+                                  itemBuilder: (context, index) {
+                                    if (index == filteredTasks.length) {
+                                      return const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(16.0),
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    final task = filteredTasks[index];
+                                    return _buildTaskCard(task);
+                                  },
+                                ),
+                ),
+              ],
             ),
           ),
         ],
@@ -226,335 +294,213 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final filteredTasks = tasks.where((task) {
-      if (selectedFilter == 'all') return true;
-      return task.status.toLowerCase() == selectedFilter;
-    }).toList();
-
-    final filterOptions = [
-      {'value': 'all', 'label': 'All Tasks', 'color': Colors.grey},
-      {
-        'value': 'approval_pending',
-        'label': 'Needs Approval',
-        'color': Colors.blue,
+  Widget _buildFilterChip(String filter, String label) {
+    final bool isSelected = selectedFilter == filter;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedFilter = filter;
+        });
       },
-      {'value': 'pending', 'label': 'In Progress', 'color': Colors.amber},
-      {'value': 'succeeded', 'label': 'Completed', 'color': Colors.green},
-      {'value': 'failed', 'label': 'Failed', 'color': Colors.red},
-    ];
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.white.withOpacity(0.4) : Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(isSelected ? 1.0 : 0.8),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFE0F2FE), // Blue-100
-                  Color(0xFFF3E8FF), // Purple-100
-                  Color(0xFFFDE2E2), // Pink-100
-                ],
-              ),
-            ),
+  Widget _buildTaskCard(TaskDetail task) {
+    // Determine status color and icon
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+
+    switch (task.status.toLowerCase()) {
+      case 'succeeded':
+      case 'completed':
+        statusColor = const Color(0xFF10B981);
+        statusLabel = 'Completed';
+        statusIcon = LucideIcons.checkCircle2;
+        break;
+      case 'failed':
+        statusColor = const Color(0xFFEF4444);
+        statusLabel = 'Failed';
+        statusIcon = LucideIcons.xCircle;
+        break;
+      case 'approval_pending':
+        statusColor = const Color(0xFF3B82F6);
+        statusLabel = 'In Progress';
+        statusIcon = LucideIcons.clock;
+        break;
+      default:
+        statusColor = const Color(0xFFF59E0B);
+        statusLabel = 'Pending';
+        statusIcon = LucideIcons.clock;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        context.go(
+          '/tasks/${task.id}',
+          extra: {'query': task.query},
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E3A5F).withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
           ),
-          // Radial Gradient Overlay
-          Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.5,
-                colors: [
-                  Color(0x66DBEAFE), // Blue-200/40
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status badge with checkbox
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tasks',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                          Text(
-                            'Manage all your AI-assisted tasks',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.refresh,
-                          color: Colors.blue[700],
-                          size: 28,
-                        ),
-                        onPressed: () => fetchTasks(page: 1),
-                      ),
-                    ],
-                  ),
-                ),
-                // Filter Tabs
                 Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
-                  ),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: filterOptions.map((option) {
-                        final isSelected = selectedFilter == option['value'];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                selectedFilter = option['value'] as String;
-                                // Reset pagination when filter changes
-                                tasks.clear();
-                                currentPage = 1;
-                                hasMore = true;
-                                fetchTasks(page: 1);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? (option['color'] as Color).withOpacity(
-                                        0.2,
-                                      )
-                                    : Colors.white.withOpacity(0.3),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? (option['color'] as Color).withOpacity(
-                                          0.3,
-                                        )
-                                      : Colors.white.withOpacity(0.4),
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                option['label'] as String,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? option['color'] as Color
-                                      : Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: statusColor.withOpacity(0.3),
+                      width: 1,
                     ),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 12, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                // Tasks List
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : errorMessage != null
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      errorMessage!,
-                                      style: const TextStyle(
-                                        color: Color(0xFFEF4444),
-                                        fontSize: 16,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton(
-                                      onPressed: () => fetchTasks(page: 1),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue[700],
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Retry',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : filteredTasks.isEmpty
-                                ? Container(
-                                    margin: const EdgeInsets.only(top: 16),
-                                    padding: const EdgeInsets.all(32),
-                                    child: Text(
-                                      'No tasks found with this filter',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[500],
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: _scrollController,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    itemCount: filteredTasks.length + (isLoadingMore ? 1 : 0),
-                                    itemBuilder: (context, index) {
-                                      if (index == filteredTasks.length) {
-                                        return const Center(child: CircularProgressIndicator());
-                                      }
-                                      final task = filteredTasks[index];
-                                      return GestureDetector(
-                                        onTap: () {
-                                          context.go(
-                                            '/tasks/${task.id}',
-                                            extra: {
-                                              'query': task.query,
-                                            },
-                                          );
-                                        },
-                                        child: Container(
-                                          margin: const EdgeInsets.only(bottom: 16),
-                                          padding: const EdgeInsets.all(24),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(24),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Flexible(
-                                                    child: Text(
-                                                      task.query.isNotEmpty
-                                                          ? task.query
-                                                          : 'No query provided',
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Colors.grey[800],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  getStatusBadge(task.status),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.access_time,
-                                                    size: 12,
-                                                    color: Colors.grey[500],
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    task.timestamp,
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[500],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (task.error != 'None') ...[
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  'Error: ${task.error}',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFFEF4444),
-                                                  ),
-                                                ),
-                                              ],
-                                              const SizedBox(height: 16),
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.end,
-                                                children: [
-                                                  Text(
-                                                    'View details',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.blue[700],
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Icon(
-                                                    Icons.chevron_right,
-                                                    size: 16,
-                                                    color: Colors.blue[700],
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                // Checkbox
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+
+            // Task title
+            Text(
+              task.query.isNotEmpty ? task.query : 'No query provided',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+
+            // Subtitle
+            Text(
+              'UX and Research Discussion',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Footer with timestamp and priority badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      task.timestamp,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+                // Priority badge (optional - can be conditional)
+                if (task.status.toLowerCase() == 'approval_pending')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.star,
+                          size: 10,
+                          color: const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Priority',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFF59E0B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

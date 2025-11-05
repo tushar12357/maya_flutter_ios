@@ -529,387 +529,632 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   // -----------------------------------------------------------------------
   // UI
   // -----------------------------------------------------------------------
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final greeting = now.hour < 12
-        ? 'Good Morning'
-        : now.hour < 18
-            ? 'Good Afternoon'
-            : 'Good Evening';
+ @override
+Widget build(BuildContext context) {
+  return BlocBuilder<AuthBloc, AuthState>(
+    builder: (context, state) {
+      final displayName = _userFirstName?.isNotEmpty == true
+          ? _userFirstName!
+          : (state is AuthAuthenticated ? state.user?.firstName ?? 'User' : 'User');
 
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final displayName = _userFirstName?.isNotEmpty == true
-            ? _userFirstName!
-            : (state is AuthAuthenticated ? state.user?.firstName ?? 'User' : 'User');
-
-        return Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFDBEAFE),
-                  Color(0xFFF3E8FF),
-                  Color(0xFFFCE7F3),
-                ],
-              ),
-            ),
-            child: Container(
+      return Scaffold(
+        body: Stack(
+          children: [
+            // Background matching splash page
+            Container(color: const Color(0xFF111827)),
+            Container(
               decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topCenter,
-                  radius: 1.0,
-                  colors: [Color(0x66BFDBFE), Colors.transparent],
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x992A57E8), // #2A57E8 at 60%
+                    Colors.transparent,
+                  ],
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 40),
-                      Text(
-                        '$greeting, $displayName',
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Here's what's happening today",
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Sync Button
-                      Center(
-                        child: ElevatedButton.icon(
-                          onPressed: _forceSyncAll,
-                          icon: const Icon(Icons.sync),
-                          label: const Text('Sync Profile & Contacts'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            
+            // Content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Header with profile, greeting and blue card
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Profile image
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 2,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Image.asset(
+                              '../../../../../assets/maya_logo.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  LucideIcons.user,
+                                  color: Colors.white,
+                                  size: 24,
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // FCM Token Display
-                      if (_fcmToken != null)
+                        const SizedBox(height: 16),
+                        
+                        // Greeting text
+                        Text(
+                          'Hello, $displayName!',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        Text(
+                          'Let\'s explore the way in which I can\nassist you.',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Blue gradient card
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.5)),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF3B82F6),
+                                Color(0xFF2563EB),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.vpn_key, size: 20, color: Colors.deepPurple),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SelectableText(
-                                  _fcmToken!,
-                                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                              const Text(
+                                'Generate complex algorithms\nand clean code with ease.',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                  height: 1.4,
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 18),
-                                tooltip: 'Copy FCM Token',
-                                onPressed: copyFcmToken,
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Start Now',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      if (_fcmToken != null) const SizedBox(height: 24),
-
-                      // Recent Activity
-                      _buildSection(
-                        title: 'Recent Activity',
-                        icon: LucideIcons.clock,
-                        color: Colors.purple,
-                        children: [
-                          _buildActivityItem({
-                            'type': 'success',
-                            'action': 'Completed task',
-                            'detail': 'Update website design',
-                            'time': '5h ago',
-                          }),
-                          _buildActivityItem({
-                            'type': 'info',
-                            'action': 'New task assigned',
-                            'detail': 'Prepare quarterly report',
-                            'time': '3h ago',
-                          }),
-                          _buildActivityItem({
-                            'type': 'error',
-                            'action': 'Task failed',
-                            'detail': 'Book meeting with client',
-                            'time': '1d ago',
-                          }),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Active Tasks
-                      _buildSection(
-                        title: 'Active Tasks',
-                        icon: LucideIcons.zap,
-                        color: Colors.blue,
-                        children: isLoadingTasks
-                            ? [const Center(child: CircularProgressIndicator())]
-                            : tasks.isEmpty
-                                ? [const Text('No active tasks', style: TextStyle(color: Colors.grey))]
-                                : tasks.take(3).map(_buildTaskItem).toList(),
-                        trailing: TextButton(
-                          onPressed: () => context.go('/tasks'),
-                          child: const Text('View All', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Upcoming
-                      _buildSection(
-                        title: 'Upcoming',
-                        icon: LucideIcons.calendar,
-                        color: Colors.amber,
-                        children: isLoadingReminders
-                            ? [const Center(child: CircularProgressIndicator())]
-                            : reminders.isEmpty
-                                ? [const Text('No upcoming reminders', style: TextStyle(color: Colors.grey))]
-                                : reminders.take(3).map(_buildReminderItem).toList(),
-                        trailing: TextButton(
-                          onPressed: () => context.go('/todos'),
-                          child: const Text('View All', style: TextStyle(color: Colors.amber)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // To-Do
-                      _buildSection(
-                        title: 'To-Do',
-                        icon: LucideIcons.checkSquare,
-                        color: Colors.green,
-                        children: isLoadingTodos
-                            ? [const Center(child: CircularProgressIndicator())]
-                            : todos.isEmpty
-                                ? [const Text('No to-dos available', style: TextStyle(color: Colors.grey))]
-                                : todos.take(3).map(_buildToDoItem).toList(),
-                        trailing: TextButton(
-                          onPressed: () => context.go('/reminders'),
-                          child: const Text('View All', style: TextStyle(color: Colors.green)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 24),
+
+                  // Scrollable content
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        // Tasks Section
+                        if (tasks.isNotEmpty) ...[
+                          _buildSectionHeader('Active Tasks', LucideIcons.zap, () {
+                            context.go('/tasks');
+                          }),
+                          const SizedBox(height: 12),
+                          if (isLoadingTasks)
+                            const Center(child: CircularProgressIndicator())
+                          else
+                            ...tasks.take(3).map((task) => _buildTaskCard(task)),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // Reminders Section
+                        if (reminders.isNotEmpty) ...[
+                          _buildSectionHeader('Upcoming', LucideIcons.calendar, () {
+                            context.go('/reminders');
+                          }),
+                          const SizedBox(height: 12),
+                          if (isLoadingReminders)
+                            const Center(child: CircularProgressIndicator())
+                          else
+                            ...reminders.take(3).map((reminder) => _buildReminderCard(reminder)),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // To-Dos Section
+                        if (todos.isNotEmpty) ...[
+                          _buildSectionHeader('To-Do', LucideIcons.checkSquare, () {
+                            context.go('/todos');
+                          }),
+                          const SizedBox(height: 12),
+                          if (isLoadingTodos)
+                            const Center(child: CircularProgressIndicator())
+                          else
+                            ...todos.take(3).map((todo) => _buildToDoCard(todo)),
+                          const SizedBox(height: 24),
+                        ],
+
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // UI helpers
-  // -----------------------------------------------------------------------
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required List<Widget> children,
-    Widget? trailing,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: color.withOpacity(0.3)),
-                      ),
-                      child: Icon(icon, size: 20, color: color),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  ],
-                ),
-                if (trailing != null) trailing,
-              ],
-            ),
-            const SizedBox(height: 20),
-            ...children,
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(Map<String, dynamic> activity) {
-    final dotColor = activity['type'] == 'success'
-        ? Colors.green
-        : activity['type'] == 'error'
-            ? Colors.red
-            : Colors.blue;
+      );
+    },
+  );
+}
+  // Solid blue card at the top
+  Widget _buildSolidBlueCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        color: const Color(0xFF2A57E8),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2A57E8).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
           Expanded(
-            child: Text('${activity['action']} - ${activity['detail']}', style: const TextStyle(fontSize: 14, color: Colors.black87)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Good to see you!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You have ${tasks.length} active tasks',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
           ),
-          Text(activity['time'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              LucideIcons.trendingUp,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTaskItem(TaskDetail task) {
-    Color statusColor;
-    String statusLabel;
+  // Section header with title and icon
+
+  // Task card
+  // Task card matching the first image
+  Widget _buildTaskCard(TaskDetail task) {
     IconData statusIcon;
+    Color accentColor;
+    String statusLabel;
+
     switch (task.status.toLowerCase()) {
       case 'succeeded':
       case 'completed':
-        statusColor = Colors.green;
-        statusLabel = 'Completed';
         statusIcon = LucideIcons.checkCircle2;
+        accentColor = const Color(0xFF10B981);
+        statusLabel = '● Completed';
         break;
       case 'failed':
-        statusColor = Colors.red;
-        statusLabel = 'Failed';
         statusIcon = LucideIcons.xCircle;
+        accentColor = const Color(0xFFEF4444);
+        statusLabel = '● Failed';
         break;
       case 'approval_pending':
-        statusColor = Colors.blue;
-        statusLabel = 'Needs Approval';
-        statusIcon = LucideIcons.alertCircle;
+        statusIcon = LucideIcons.clock;
+        accentColor = const Color(0xFF3B82F6);
+        statusLabel = '● In Progress';
         break;
       default:
-        statusColor = Colors.amber;
-        statusLabel = 'In Progress';
         statusIcon = LucideIcons.clock;
+        accentColor = const Color(0xFFF59E0B);
+        statusLabel = '● Pending';
     }
 
     return GestureDetector(
-      onTap: () => context.go('/tasks/${task.id}', extra: {'query': task.query}),
+      onTap: () =>
+          context.go('/tasks/${task.id}', extra: {'query': task.query}),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.25),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.35)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          color: const Color(0xFF1E3A5F).withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Status badge with dot
             Row(
               children: [
-                Icon(LucideIcons.zap, size: 16, color: Colors.blue.withOpacity(0.8)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    task.query.isNotEmpty ? task.query : 'No query provided',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                Text(
+                  statusLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: accentColor,
+                  ),
+                ),
+                const Spacer(),
+                // Checkbox
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
+
+            // Task title
+            Text(
+              task.query.isNotEmpty ? task.query : 'No query provided',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+
+            // Subtitle/description
+            Text(
+              'UX and Research Discussion',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Footer with timestamp and arrow
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(statusIcon, size: 14, color: statusColor),
-                      const SizedBox(width: 6),
-                      Text(statusLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: statusColor)),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      task.timestamp,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(task.timestamp, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                Icon(
+                  LucideIcons.arrowRight,
+                  size: 18,
+                  color: Colors.white.withOpacity(0.5),
+                ),
               ],
             ),
-            if (task.error != 'None') ...[
-              const SizedBox(height: 8),
-              Text('Error: ${task.error}', style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
-            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildReminderItem(Map<String, dynamic> reminder) {
+  // To-Do card matching the second image
+  Widget _buildToDoCard(Map<String, dynamic> todo) {
+    final isCompleted = todo['status'] == 'completed';
+
+    return GestureDetector(
+      onTap: isCompleted ? null : () => completeToDo(todo),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D4A6F).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Title
+                Expanded(
+                  child: Text(
+                    todo['title'],
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      decoration: isCompleted
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      decorationColor: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                ),
+                // Checkbox
+                GestureDetector(
+                  onTap: isCompleted ? null : () => completeToDo(todo),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? const Color(0xFF3B82F6)
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: isCompleted
+                            ? const Color(0xFF3B82F6)
+                            : Colors.white.withOpacity(0.3),
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: isCompleted
+                        ? const Icon(
+                            LucideIcons.check,
+                            size: 14,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Description
+            Text(
+              todo['description'] ?? 'UX and Research Discussion',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Footer with timestamp and icons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Today, 20 Sep 2025',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.copy,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      LucideIcons.trash2,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      LucideIcons.moreVertical,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Reminder card matching the style
+  Widget _buildReminderCard(Map<String, dynamic> reminder) {
     final utcTime = DateTime.parse(reminder['reminder_time']);
     final localTime = utcTime.toLocal();
-    final formattedTime = DateFormat('MMM d, yyyy h:mm a').format(localTime);
+    final formattedTime = DateFormat('MMM d, h:mm a').format(localTime);
+
     return GestureDetector(
-      onTap: () => context.go('/other'),
+      onTap: () => context.go('/reminders'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.3),
+          color: const Color(0xFF2D4A6F).withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.4)),
+          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(reminder['title'] ?? 'Reminder', style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  Text(formattedTime, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Title
+                Expanded(
+                  child: Text(
+                    reminder['title'] ?? 'Reminder',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                // Bell icon
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(
+                    LucideIcons.bell,
+                    size: 14,
+                    color: Color(0xFFF59E0B),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Description
+            Text(
+              reminder['description'] ?? 'UX and Research Discussion',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.6),
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // Footer with timestamp and icons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      formattedTime,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.copy,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      LucideIcons.trash2,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      LucideIcons.moreVertical,
+                      size: 16,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -917,59 +1162,46 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
     );
   }
 
-  Widget _buildToDoItem(Map<String, dynamic> todo) {
-    return GestureDetector(
-      onTap: todo['status'] == 'completed' ? null : () => completeToDo(todo),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.4)),
+  // Section header with title and "View all"
+  Widget _buildSectionHeader(String title, IconData icon, VoidCallback onTap) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: todo['status'] == 'completed' ? null : () => completeToDo(todo),
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  border: Border.all(color: todo['status'] == 'completed' ? Colors.green : Colors.grey, width: 2),
-                  borderRadius: BorderRadius.circular(4),
-                  color: todo['status'] == 'completed' ? Colors.green.withOpacity(0.2) : Colors.transparent,
-                ),
-                child: todo['status'] == 'completed'
-                    ? const Icon(LucideIcons.checkCircle2, size: 14, color: Colors.green)
-                    : null,
-              ),
+        GestureDetector(
+          onTap: onTap,
+          child: Text(
+            'View all',
+            style: TextStyle(
+              fontSize: 13,
+              color: const Color(0xFF3B82F6),
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                todo['title'],
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                  decoration: todo['status'] == 'completed' ? TextDecoration.lineThrough : TextDecoration.none,
-                  decorationColor: Colors.grey,
-                ),
-              ),
-            ),
-            if (todo['status'] != 'completed' && todo['priority'] == 'high')
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: const Text('High', style: TextStyle(fontSize: 12, color: Colors.red)),
-              ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
+
+  Widget _buildSmallIconButton(IconData icon) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+      ),
+      child: Icon(icon, size: 14, color: Colors.white.withOpacity(0.7)),
+    );
+  }
+
+
 }

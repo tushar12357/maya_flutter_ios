@@ -26,18 +26,24 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app needs Bluetooth to scan for nearby devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app needs Bluetooth to scan for nearby devices.</string>
+
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access for Bluetooth scanning.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app requires location access to function properly even when the app is in the background.</string>
+
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -55,12 +61,11 @@
 	<key>NSContactsUsageDescription</key>
 	<string>This app needs access to contacts to sync them.</string>
 	<key>NSMicrophoneUsageDescription</key>
-<string>Maya needs microphone access to listen to your voice and have a conversation.</string>
-<key>NSCameraUsageDescription</key>
-<string>This app needs camera access for capturing photos or scanning.</string>
-
-<key>NSPhotoLibraryUsageDescription</key>
-<string>This app needs access to your photo library to select or upload photos.</string>
+	<string>Maya needs microphone access to listen to your voice and have a conversation.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access for capturing photos or scanning.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to select or upload photos.</string>
 
 </dict>
 </plist>

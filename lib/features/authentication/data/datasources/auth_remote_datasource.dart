@@ -16,6 +16,7 @@ abstract class AuthRemoteDataSource {
     required String password,
     required String firstName,
     required String lastName,
+    required String phone_number,
   });
 
   Future<void> logout();
@@ -80,6 +81,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
     required String firstName,
     required String lastName,
+    required String phone_number,
   }) async {
     try {
       print('🌐 API: Attempting registration for $email');
@@ -93,6 +95,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         email: email,
         firstName: firstName,
         lastName: lastName,
+        phone_number: phone_number,
       );
 
       print('✅ API: Registration successful');

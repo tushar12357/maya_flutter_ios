@@ -642,12 +642,14 @@ Future<Map<String, dynamic>> getCurrentUser() async {
   required bool pushNotifications,
   required bool smsNotifications,
   required bool deviceNotifications,
+  required bool callNotifications,
 }) async {
   final payload = _buildNotificationPayload(
     email: emailNotifications,
     push: pushNotifications,
     sms: smsNotifications,
     device: deviceNotifications,
+    call: callNotifications,
   );
 
   final response = await _protectedDio.patch(
@@ -663,12 +665,14 @@ Future<Map<String, dynamic>> getCurrentUser() async {
   required bool push,
   required bool sms,
   required bool device,
+  required bool call,
 }) {
   return {
     'email_notifications': email,
     'push_notifications': push,
     'sms_notifications': sms,
     'device_notifications': device,
+    'call_notifications': call,
   };
 }
 

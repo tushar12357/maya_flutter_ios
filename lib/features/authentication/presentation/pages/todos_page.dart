@@ -2,6 +2,7 @@ import 'package:Maya/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:get_it/get_it.dart';
+import 'package:intl/intl.dart';
 
 class TodosPage extends StatefulWidget {
   const TodosPage({super.key});
@@ -12,11 +13,15 @@ class TodosPage extends StatefulWidget {
 
 class _TodosPageState extends State<TodosPage> {
   List<Map<String, dynamic>> todos = [];
+  List<Map<String, dynamic>> filteredTodos = [];
   bool isLoadingTodos = false;
   bool isLoadingMore = false;
   int currentPage = 1;
   bool hasMore = true;
   final ScrollController _scrollController = ScrollController();
+  String selectedFilter = 'all';
+
+  final DateTime today = DateTime(2025, 9, 11); // Based on image
 
   @override
   void initState() {
@@ -48,8 +53,9 @@ class _TodosPageState extends State<TodosPage> {
           } else {
             todos.addAll(newTodos);
           }
-          hasMore = newTodos.isNotEmpty; // Assuming API returns empty list when no more data
+          hasMore = newTodos.isNotEmpty;
           currentPage = page;
+          _filterTodos();
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,6 +74,21 @@ class _TodosPageState extends State<TodosPage> {
     }
   }
 
+  void _filterTodos() {
+    List<Map<String, dynamic>> filtered = todos;
+    if (selectedFilter == 'open') {
+      filtered = todos.where((t) => t['status'] == 'pending').toList();
+    } else if (selectedFilter == 'close') {
+      filtered = todos.where((t) => t['status'] == 'completed').toList();
+    } else if (selectedFilter == 'archived') {
+      filtered = todos.where((t) => t['status'] == 'archived').toList();
+    }
+    // Filter for today's date if needed, but image shows all
+    setState(() {
+      filteredTodos = filtered;
+    });
+  }
+
   Future<void> updateToDo(Map<String, dynamic> todo) async {
     try {
       final payload = GetIt.I<ApiClient>().prepareUpdateToDoPayload(
@@ -80,7 +101,7 @@ class _TodosPageState extends State<TodosPage> {
       );
       final response = await GetIt.I<ApiClient>().updateToDo(payload);
       if (response['statusCode'] == 200) {
-        await fetchToDos(page: 1); // Refresh from first page
+        await fetchToDos(page: 1);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('To-Do updated successfully')),
         );
@@ -96,6 +117,18 @@ class _TodosPageState extends State<TodosPage> {
     }
   }
 
+  void _onFilterChanged(String filter) {
+    setState(() {
+      selectedFilter = filter;
+    });
+    _filterTodos();
+  }
+
+  void _onNewTask() {
+    // Navigate to add task
+    context.go('/add-task');
+  }
+
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200 &&
@@ -107,137 +140,293 @@ class _TodosPageState extends State<TodosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final totalCount = todos.length;
+    final openCount = todos.where((t) => t['status'] == 'pending').length;
+    final closeCount = todos.where((t) => t['status'] == 'completed').length;
+    final archivedCount = todos.where((t) => t['status'] == 'archived').length;
+
+    final dateStr = DateFormat('EEEE, MMMM d, yyyy').format(today);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('To-Dos'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: Stack(
         children: [
-          // Gradient background
+          // Background color
+          Container(color: const Color(0xFF111827)),
+          // Gradient overlay
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFE3F2FD), // blue-100
-                  Color(0xFFF3E8FF), // purple-100
-                  Color(0xFFFDE2F3), // pink-100
-                ],
-              ),
-            ),
-          ),
-          // Radial gradient overlay
-          Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.5,
-                colors: [
-                  Color(0x66BBDEFB), // blue-200/40
-                  Colors.transparent,
-                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x992A57E8), Colors.transparent],
               ),
             ),
           ),
           // Main content
           SafeArea(
             child: isLoadingTodos
-                ? const Center(child: CircularProgressIndicator())
-                : todos.isEmpty
-                    ? const Center(child: Text('No to-dos available', style: TextStyle(color: Colors.grey)))
-                    : SingleChildScrollView(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : Column(
+                    children: [
+                      // Custom Header with Back Button
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
                           children: [
-                            const SizedBox(height: 16),
+                            GestureDetector(
+                              onTap: () => context.pop(),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF111827).withOpacity(0.8),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.1),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             const Text(
-                              'To-Do List',
+                              'To-Do',
                               style: TextStyle(
-                                fontSize: 28,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2937), // gray-800
+                                color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Manage your personal to-do lists',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF4B5563), // gray-600
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            // To-Do List
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: todos.length + (isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == todos.length) {
-                                  return const Center(child: CircularProgressIndicator());
-                                }
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white.withOpacity(0.4)),
-                                    boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Checkbox(
-                                        value: todos[index]['status'] == 'completed',
-                                        activeColor: const Color(0xFF047857), // green-700
-                                        onChanged: (value) => updateToDo(todos[index]),
-                                      ),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              todos[index]['title'],
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w500,
-                                                color: const Color(0xFF1F2937),
-                                                decoration: todos[index]['status'] == 'completed'
-                                                    ? TextDecoration.lineThrough
-                                                    : null,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              todos[index]['description'],
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Color(0xFF4B5563),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                            const Spacer(),
                           ],
                         ),
                       ),
+                      // Subtitle
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: const Text(
+                          'Manage personal To-Dos',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromRGBO(189, 189, 189, 1),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Today's tasks header
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Today's Task",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  dateStr,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color.fromRGBO(189, 189, 189, 1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Filter chips
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            _buildFilterChip('all', totalCount, selectedFilter == 'all'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('open', openCount, selectedFilter == 'open'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('close', closeCount, selectedFilter == 'close'),
+                            const SizedBox(width: 8),
+                            _buildFilterChip('archived', archivedCount, selectedFilter == 'archived'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Todos List
+                      Expanded(
+                        child: filteredTodos.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No to-dos available',
+                                  style: TextStyle(fontSize: 16, color: Colors.white),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: filteredTodos.length + (isLoadingMore ? 1 : 0),
+                                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  if (index == filteredTodos.length) {
+                                    return const Center(child: CircularProgressIndicator(color: Color(0xFF2A57E8)));
+                                  }
+                                  final todo = filteredTodos[index];
+                                  final isCompleted = todo['status'] == 'completed';
+                                  final checkboxColor = isCompleted ? Colors.white.withOpacity(0.5) : const Color(0xFF2A57E8);
+                                  final textColor = isCompleted ? Colors.white.withOpacity(0.5) : Colors.white;
+
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2D4A6F).withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Checkbox
+                                        GestureDetector(
+                                          onTap: () => updateToDo(todo),
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: checkboxColor),
+                                              color: isCompleted ? checkboxColor : Colors.transparent,
+                                            ),
+                                            child: isCompleted
+                                                ? const Icon(
+                                                    Icons.check,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  )
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        // Content
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                todo['title'] ?? 'Untitled Task',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: textColor,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                todo['description'] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color.fromRGBO(189, 189, 189, 1),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF2A57E8).withOpacity(0.2),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      'Today, 20 Sep 2025', // From image, dynamic based on todo['due_date']
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: const Color(0xFF2A57E8),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  // Icons
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      // Folder action
+                                                    },
+                                                    icon: const Icon(Icons.folder_outlined, color: Color.fromRGBO(189, 189, 189, 1)),
+                                                  ),
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      // Delete action
+                                                    },
+                                                    icon: const Icon(Icons.delete_outline, color: Color.fromRGBO(189, 189, 189, 1)),
+                                                  ),
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      // More actions
+                                                    },
+                                                    icon: const Icon(Icons.more_vert, color: Color.fromRGBO(189, 189, 189, 1)),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String filter, int count, bool isSelected) {
+    return GestureDetector(
+      onTap: () => _onFilterChanged(filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2A57E8).withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2A57E8) : Colors.white.withOpacity(0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              filter.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? const Color(0xFF2A57E8) : Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '($count)',
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? const Color(0xFF2A57E8) : Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:feather_icons/feather_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../features/authentication/presentation/bloc/auth_bloc.dart';
 import '../../../features/authentication/presentation/bloc/auth_event.dart';
 
@@ -12,14 +11,14 @@ class TabLayout extends StatefulWidget {
   const TabLayout({super.key, required this.child});
 
   @override
-  _TabLayoutState createState() => _TabLayoutState();
+  State<TabLayout> createState() => _TabLayoutState();
 }
 
 class _TabLayoutState extends State<TabLayout> with TickerProviderStateMixin {
   late TabController _tabController;
   int _currentIndex = 0;
 
-  static const _tabs = [
+  static const List<Map<String, dynamic>> _tabs = [
     {'route': '/home', 'icon': FeatherIcons.home, 'label': 'Home'},
     {'route': '/tasks', 'icon': FeatherIcons.checkSquare, 'label': 'Tasks'},
     {'route': '/maya', 'icon': FeatherIcons.star, 'label': 'Maya'},
@@ -52,7 +51,9 @@ class _TabLayoutState extends State<TabLayout> with TickerProviderStateMixin {
 
   void _updateTabFromRoute() {
     final location = GoRouterState.of(context).uri.path;
-    final newIndex = _tabs.indexWhere((tab) => location == tab['route'] || location.startsWith('${tab['route']}/'));
+    final newIndex = _tabs.indexWhere(
+      (tab) => location == tab['route'] || location.startsWith('${tab['route']}/'),
+    );
     if (newIndex != -1 && newIndex != _currentIndex) {
       setState(() {
         _currentIndex = newIndex;
@@ -62,9 +63,6 @@ class _TabLayoutState extends State<TabLayout> with TickerProviderStateMixin {
   }
 
   Future<void> _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
-    await prefs.remove('refresh_token');
     context.read<AuthBloc>().add(LogoutRequested());
   }
 
@@ -93,95 +91,189 @@ class _TabLayoutState extends State<TabLayout> with TickerProviderStateMixin {
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFF111827),
+        extendBody: true, // Allows body to extend behind the navigation bar
         body: widget.child,
-        bottomNavigationBar: Container(
-          margin: const EdgeInsets.all(6),
-          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 20,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFF6366F1),
-            unselectedLabelColor: const Color(0xFF9CA3AF),
-            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
-            indicator: const BoxDecoration(),
-            tabs: _tabs.asMap().entries.map((entry) {
-              final index = entry.key;
-              final tab = entry.value;
-              final isActive = _currentIndex == index;
-              return Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? const Color(0xFF6366F1).withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        tab['icon'] as IconData,
-                        size: 22,
-                        color: isActive
-                            ? const Color(0xFF6366F1)
-                            : const Color(0xFF9CA3AF),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tab['label'] as String,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                        color: isActive
-                            ? const Color(0xFF6366F1)
-                            : const Color(0xFF9CA3AF),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ),
+        bottomNavigationBar: _buildBottomNavigationBar(),
       ),
     );
   }
 
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDestructive ? Colors.red : const Color(0xFF6366F1),
+  Widget _buildBottomNavigationBar() {
+    const activeColor = Color(0xFF60A5FA); // Light blue for active
+    const inactiveColor = Color(0xFF9CA3AF); // Grey for inactive
+    const backgroundColor = Color(0xFF1E293B); // Dark navy background
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      height: 90, // Increased to accommodate elevated button
+      decoration: const BoxDecoration(
+        color: Colors.transparent, // Transparent container
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive ? Colors.red : Colors.black87,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          // Bottom navigation bar with notch
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 70,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: CustomPaint(
+                  painter: _NavBarNotchPainter(),
+                  child: Row(
+                    children: List.generate(_tabs.length, (index) {
+                      final tab = _tabs[index];
+                      final isActive = _currentIndex == index;
+                      final isCentral = index == 2;
+
+                      if (isCentral) {
+                        // Empty space for central button
+                        return const Expanded(child: SizedBox());
+                      } else {
+                        // Regular side tabs
+                        return Expanded(
+                          child: InkWell(
+                            onTap: () => _tabController.animateTo(index),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    tab['icon'] as IconData,
+                                    size: 22,
+                                    color: isActive ? activeColor : inactiveColor,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    tab['label'] as String,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: isActive ? activeColor : inactiveColor,
+                                    ),
+                                  ),
+                                  // Active indicator line
+                                  if (isActive)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      width: 32,
+                                      height: 3,
+                                      decoration: BoxDecoration(
+                                        color: activeColor,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Elevated central FAB button
+          Positioned(
+            top: 0,
+            child: GestureDetector(
+              onTap: () => _tabController.animateTo(2),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF3B82F6).withOpacity(0.6),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child:  Image.asset(
+                  '../../assets/maya_logo.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
+}
+
+// Custom painter to create a notch/cutout for the central button
+class _NavBarNotchPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1E293B)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    
+    // Start from left
+    path.moveTo(0, 0);
+    path.lineTo(0, size.height);
+    path.lineTo(size.width, size.height);
+    path.lineTo(size.width, 0);
+    
+    // Create a circular notch in the center
+    final notchCenter = size.width / 2;
+    final notchRadius = 38.0; // Slightly larger than button radius for clearance
+    
+    path.moveTo(notchCenter - notchRadius - 10, 0);
+    path.quadraticBezierTo(
+      notchCenter - notchRadius, -5,
+      notchCenter - notchRadius + 5, -10,
+    );
+    
+    path.arcToPoint(
+      Offset(notchCenter + notchRadius - 5, -10),
+      radius: Radius.circular(notchRadius),
+      clockwise: false,
+    );
+    
+    path.quadraticBezierTo(
+      notchCenter + notchRadius, -5,
+      notchCenter + notchRadius + 10, 0,
+    );
+    
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

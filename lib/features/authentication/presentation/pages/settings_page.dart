@@ -30,14 +30,21 @@ class _SettingsPageState extends State<SettingsPage> {
   // Notification Preferences
   bool _emailNotifications = true;
   bool _pushNotifications = true;
-  bool _smsNotifications = false;
+  bool _smsNotifications = true;
   bool _deviceNotifications = true;
+  bool _callNotifications = true;
 
   // API & Debouncers
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
-  final Debouncer _volumeDebouncer = Debouncer(delay: Duration(milliseconds: 500));
-  final Debouncer _micVolumeDebouncer = Debouncer(delay: Duration(milliseconds: 500));
-  final Debouncer _notiDebouncer = Debouncer(delay: Duration(milliseconds: 600));
+  final Debouncer _volumeDebouncer = Debouncer(
+    delay: Duration(milliseconds: 500),
+  );
+  final Debouncer _micVolumeDebouncer = Debouncer(
+    delay: Duration(milliseconds: 500),
+  );
+  final Debouncer _notiDebouncer = Debouncer(
+    delay: Duration(milliseconds: 600),
+  );
 
   // Mock WiFi Networks
   final List<Map<String, dynamic>> wifiNetworks = [
@@ -50,7 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _fetchInitialAudioSettings();
-    _fetchNotificationPreferences(); // Fetch noti prefs
+    _fetchNotificationPreferences();
   }
 
   @override
@@ -101,22 +108,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _fetchNotificationPreferences() async {
     try {
-      final resp = await _apiClient.updateNotificationPreferences(
-        emailNotifications: true,
-        pushNotifications: true,
-        smsNotifications: true,
-        deviceNotifications: true,
-      );
-
-      if (resp['statusCode'] == 200) {
-        final data = resp['data'] as Map<String, dynamic>;
-        setState(() {
-          _emailNotifications = data['email_notifications'] ?? true;
-          _pushNotifications = data['push_notifications'] ?? true;
-          _smsNotifications = data['sms_notifications'] ?? false;
-          _deviceNotifications = data['device_notifications'] ?? true;
-        });
-      }
+      final resp = await _apiClient.getCurrentUser();
+      final data = resp['data']['notification_preference'] as Map<String, dynamic>;
+      setState(() {
+        _emailNotifications = data['email_notifications'] ?? true;
+        _pushNotifications = data['push_notifications'] ?? true;
+        _smsNotifications = data['sms_notifications'] ?? true;
+        _deviceNotifications = data['device_notifications'] ?? true;
+        _callNotifications = data['call_notifications'] ?? true;
+      });
     } catch (_) {
       // Silently use defaults
     }
@@ -231,6 +231,7 @@ class _SettingsPageState extends State<SettingsPage> {
         pushNotifications: _pushNotifications,
         smsNotifications: _smsNotifications,
         deviceNotifications: _deviceNotifications,
+        callNotifications: _callNotifications,
       );
 
       if (resp['statusCode'] == 200) {
@@ -246,7 +247,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF1F2937),
+      ),
+    );
   }
 
   // MARK: - Build UI
@@ -254,66 +260,58 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Background
+          // Background gradient (same as splash page)
+          Container(color: const Color(0xFF111827)),
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFE3F2FD),
-                  Color(0xFFF3E8FF),
-                  Color(0xFFFDE2F3),
+                  Color(0x992A57E8), // #2A57E8 at 60%
+                  Colors.transparent,
                 ],
-              ),
-            ),
-          ),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.5,
-                colors: [Color(0x66BBDEFB), Colors.transparent],
               ),
             ),
           ),
           // Content
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   const Text(
-                    'Doll Settings',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+                    'Doll Setup',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Configure your Maya AI Doll',
-                    style: TextStyle(fontSize: 16, color: Color(0xFF4B5563)),
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  _buildDeviceStatus(),
+                  _buildPowerSection(),
                   const SizedBox(height: 16),
-                  _buildAudioControls(),
+                  _buildConnectivitySection(),
                   const SizedBox(height: 16),
-                  _buildWakeMaya(),
+                  _buildDeviceStatusSection(),
                   const SizedBox(height: 16),
-                  _buildWifiConnection(),
+                  _buildAudioControlSection(),
                   const SizedBox(height: 16),
-                  _buildBluetooth(),
+                  _buildWakeWordSection(),
                   const SizedBox(height: 16),
-                  _buildAdditionalSettings(),
+                  _buildWifiSection(),
                   const SizedBox(height: 16),
-                  _buildNotificationPreferences(), // NEW
+                  _buildBluetoothSection(),
                   const SizedBox(height: 16),
-                  _buildPowerManagement(),
+                  _buildNotificationSection(),
+                  const SizedBox(height: 16),
+                  _buildAdditionalSettingsSection(),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -327,53 +325,119 @@ class _SettingsPageState extends State<SettingsPage> {
           if (_isLoading)
             Container(
               color: Colors.black.withOpacity(0.4),
-              child: const Center(child: CircularProgressIndicator()),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A57E8)),
+                ),
+              ),
             ),
         ],
       ),
     );
   }
 
-  // MARK: - UI Components
+  // MARK: - UI Sections
 
-  Widget _buildDeviceStatus() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0x66BBDEFB), Color(0x66EDE9FE)]),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.4)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
+  Widget _buildPowerSection() {
+    return _buildSection(
+      title: 'Power',
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.power_settings_new,
+              label: 'Power Off',
+              color: const Color(0xFFEF4444),
+              onTap: () => setState(() => _showShutdownModal = true),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.restart_alt,
+              label: 'Restart',
+              color: const Color(0xFF6B7280),
+              onTap: () => setState(() => _showRestartModal = true),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildConnectivitySection() {
+    return _buildSection(
+      title: 'Connectivity',
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatusCard(
+              icon: Icons.wifi,
+              label: 'Wi-Fi',
+              status: _wifiConnected ? 'On' : 'Off',
+              iconColor: _wifiConnected ? const Color(0xFF10B981) : const Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatusCard(
+              icon: Icons.bluetooth,
+              label: 'Bluetooth',
+              status: _bluetoothEnabled ? 'On' : 'Off',
+              iconColor: _bluetoothEnabled ? const Color(0xFF3B82F6) : const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceStatusSection() {
+    return _buildSection(
+      title: 'Device Status',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Device Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-              Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF10B981))),
-                  const SizedBox(width: 8),
-                  const Text('Online', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF047857))),
-                ],
+              Expanded(
+                child: _buildInfoCard(
+                  icon: Icons.battery_charging_full,
+                  label: 'Battery',
+                  value: '87%',
+                  iconColor: const Color(0xFF10B981),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildInfoCard(
+                  icon: Icons.thermostat,
+                  label: 'Temperature',
+                  value: '32°C',
+                  iconColor: const Color(0xFFF59E0B),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.5,
+          const SizedBox(height: 12),
+          Row(
             children: [
-              _buildStatusCard('87%', 'Battery', const Color(0xFF1F2937)),
-              _buildStatusCard('v2.4.1', 'Firmware', const Color(0xFF3B82F6)),
-              _buildStatusCard('32°C', 'Temperature', const Color(0xFFA855F7)),
-              _buildStatusCard('18h', 'Uptime', const Color(0xFF059669)),
+              Expanded(
+                child: _buildInfoCard(
+                  icon: Icons.schedule,
+                  label: 'Uptime',
+                  value: '18h',
+                  iconColor: const Color(0xFF3B82F6),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildInfoCard(
+                  icon: Icons.system_update,
+                  label: 'Firmware',
+                  value: 'v2.4.1',
+                  iconColor: const Color(0xFF8B5CF6),
+                ),
+              ),
             ],
           ),
         ],
@@ -381,81 +445,50 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildStatusCard(String value, String label, Color valueColor) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.5)),
-      ),
+  Widget _buildAudioControlSection() {
+    return _buildSection(
+      title: 'Audio Control',
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: valueColor)),
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAudioControls() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0x66BFDBFE), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x6693C5FD))),
-                child: const Icon(Icons.volume_up, size: 20, color: Color(0xFF3B82F6)),
-              ),
-              const SizedBox(width: 8),
-              const Text('Audio Controls', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildSlider(
+          _buildSliderControl(
             label: 'Speaker Volume',
             value: _volume,
-            valueColor: const Color(0xFF3B82F6),
             onChanged: (v) {
               setState(() => _volume = v);
               _volumeDebouncer.run(() => _setVolume(v));
             },
           ),
           const SizedBox(height: 16),
-          _buildSlider(
+          _buildSliderControl(
             label: 'Microphone Sensitivity',
             value: _micVolume,
-            valueColor: const Color(0xFFA855F7),
             onChanged: (v) {
               setState(() => _micVolume = v);
               _micVolumeDebouncer.run(() => _setMicVolume(v));
             },
           ),
-          const SizedBox(height: 16),
-          _buildSwitchTile(
-            title: 'Wake Word Detection',
-            subtitle: 'Activate with "Hey Maya"',
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWakeWordSection() {
+    return _buildSection(
+      title: 'Wake Word Setting',
+      child: Column(
+        children: [
+          _buildSwitchRow(
+            label: 'Activate Maya with "Hey Maya"',
             value: _wakeWordEnabled,
-            activeColor: const Color(0xFF3B82F6),
             onChanged: _setWakeWord,
           ),
           if (!_wakeWordEnabled) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'When wake word detection is off, use the Wake Maya button below to activate Maya.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+            const SizedBox(height: 12),
+            _buildActionButton(
+              icon: Icons.mic,
+              label: 'Wake Maya',
+              color: const Color(0xFF2A57E8),
+              onTap: _wakeMaya,
             ),
           ],
         ],
@@ -463,333 +496,113 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildWakeMaya() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
+  Widget _buildWifiSection() {
+    return _buildSection(
+      title: 'WiFi Configuration',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0x66FECACA), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x66FCA5A5))),
-                child: const Icon(Icons.mic, size: 20, color: Color(0xFFBE123C)),
-              ),
-              const SizedBox(width: 8),
-              const Text('Wake Maya', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-            ],
+          _buildSwitchRow(
+            label: 'WiFi',
+            value: _wifiConnected,
+            onChanged: (v) => setState(() => _wifiConnected = v),
           ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _wakeMaya,
-            child: Container(
+          if (_wifiConnected) ...[
+            const SizedBox(height: 12),
+            ...wifiNetworks.map((net) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildWifiCard(
+                name: net['name'],
+                signal: net['signal'],
+                connected: net['connected'],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBluetoothSection() {
+    return _buildSection(
+      title: 'Bluetooth',
+      child: Column(
+        children: [
+          _buildSwitchRow(
+            label: 'Bluetooth',
+            value: _bluetoothEnabled,
+            onChanged: (v) => setState(() => _bluetoothEnabled = v),
+          ),
+          if (_bluetoothEnabled) ...[
+            const SizedBox(height: 12),
+            Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0x66FECACA), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x66FCA5A5))),
-              child: const Center(child: Text('Wake Maya', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFBE123C)))),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSlider({required String label, required double value, required Color valueColor, required ValueChanged<double> onChanged}) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-            Text('${value.round()}%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: valueColor)),
-          ],
-        ),
-        Slider(value: value, min: 0, max: 100, activeColor: valueColor, inactiveColor: Colors.white.withOpacity(0.4), onChanged: onChanged),
-      ],
-    );
-  }
-
-  Widget _buildSwitchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Color activeColor,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
-            ],
-          ),
-          Switch(value: value, activeThumbColor: activeColor, inactiveTrackColor: const Color(0xFFD1D5DB), onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWifiConnection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(color: const Color(0x66BBF7D0), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x669EF7AD))),
-                    child: const Icon(Icons.wifi, size: 20, color: Color(0xFF047857)),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('WiFi Connection', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-                ],
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2937),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF374151)),
               ),
-              Switch(value: _wifiConnected, activeThumbColor: const Color(0xFF10B981), inactiveTrackColor: const Color(0xFFD1D5DB), onChanged: (v) => setState(() => _wifiConnected = v)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...wifiNetworks.map((net) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: net['connected'] ? const Color(0x66BBF7D0) : Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: net['connected'] ? const Color(0x66BBF7D0) : Colors.white.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.wifi, size: 20, color: net['connected'] ? const Color(0xFF047857) : const Color(0xFF4B5563)),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(net['name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-                              Text('${net['signal']} signal', style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
-                            ],
-                          ),
-                        ],
-                      ),
-                      if (net['connected'])
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: const Color(0x66BBF7D0), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0x66BBF7D0))),
-                          child: const Text('Connected', style: TextStyle(fontSize: 12, color: Color(0xFF047857))),
-                        ),
-                    ],
+              child: const Center(
+                child: Text(
+                  'Searching for devices...',
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
                   ),
                 ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBluetooth() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(color: const Color(0x66BFDBFE), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x6693C5FD))),
-                    child: const Icon(Icons.bluetooth, size: 20, color: Color(0xFF3B82F6)),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Bluetooth', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-                ],
-              ),
-              Switch(value: _bluetoothEnabled, activeThumbColor: const Color(0xFF3B82F6), inactiveTrackColor: const Color(0xFFD1D5DB), onChanged: (v) => setState(() => _bluetoothEnabled = v)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4))),
-            child: Center(
-              child: Text(
-                _bluetoothEnabled ? 'Searching for devices...' : 'Bluetooth is turned off',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdditionalSettings() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0x66E9D5FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x66D8B4FE))),
-                child: const Icon(Icons.settings, size: 20, color: Color(0xFFA855F7)),
-              ),
-              const SizedBox(width: 8),
-              const Text('Additional Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSettingTile(icon: Icons.tune, iconColor: const Color(0xFFA855F7), title: 'Voice Settings', subtitle: 'Customize voice and language'),
-          const SizedBox(height: 8),
-          _buildSettingTile(icon: Icons.lock, iconColor: const Color(0xFFF59E0B), title: 'Privacy & Security', subtitle: 'Manage data and permissions'),
-          const SizedBox(height: 8),
-          _buildSettingTile(icon: Icons.cloud_download, iconColor: const Color(0xFF3B82F6), title: 'Software Update', subtitle: 'Check for firmware updates'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingTile({required IconData icon, required Color iconColor, required String title, required String subtitle}) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4))),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: iconColor),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
-                  ],
-                ),
-              ],
-            ),
-            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF6B7280)),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  // MARK: - NEW: Notification Preferences
-
-  Widget _buildNotificationPreferences() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
+  Widget _buildNotificationSection() {
+    return _buildSection(
+      title: 'Notification',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0x66FEF3C7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x66FCD34D))),
-                child: const Icon(Icons.notifications, size: 20, color: Color(0xFFD97706)),
-              ),
-              const SizedBox(width: 8),
-              const Text('Notification Preferences', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSwitchTile(
-            title: 'Email Notifications',
-            subtitle: 'Receive updates via email',
+          _buildSwitchRow(
+            label: 'Email Notification',
             value: _emailNotifications,
-            activeColor: const Color(0xFFD97706),
             onChanged: (v) {
               setState(() => _emailNotifications = v);
               _notiDebouncer.run(_updateNotificationPrefs);
             },
           ),
           const SizedBox(height: 8),
-          _buildSwitchTile(
-            title: 'Push Notifications',
-            subtitle: 'In-app alerts',
+          _buildSwitchRow(
+            label: 'Push Notification',
             value: _pushNotifications,
-            activeColor: const Color(0xFFD97706),
             onChanged: (v) {
               setState(() => _pushNotifications = v);
               _notiDebouncer.run(_updateNotificationPrefs);
             },
           ),
           const SizedBox(height: 8),
-          _buildSwitchTile(
-            title: 'SMS Notifications',
-            subtitle: 'Text message alerts',
+          _buildSwitchRow(
+            label: 'SMS Notification',
             value: _smsNotifications,
-            activeColor: const Color(0xFFD97706),
             onChanged: (v) {
               setState(() => _smsNotifications = v);
               _notiDebouncer.run(_updateNotificationPrefs);
             },
           ),
           const SizedBox(height: 8),
-          _buildSwitchTile(
-            title: 'Device Notifications',
-            subtitle: 'Doll-specific alerts',
+          _buildSwitchRow(
+            label: 'Device Notification',
             value: _deviceNotifications,
-            activeColor: const Color(0xFFD97706),
             onChanged: (v) {
               setState(() => _deviceNotifications = v);
+              _notiDebouncer.run(_updateNotificationPrefs);
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildSwitchRow(
+            label: 'Call Notification',
+            value: _callNotifications,
+            onChanged: (v) {
+              setState(() => _callNotifications = v);
               _notiDebouncer.run(_updateNotificationPrefs);
             },
           ),
@@ -798,93 +611,403 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildPowerManagement() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black12)],
-      ),
+  Widget _buildAdditionalSettingsSection() {
+    return _buildSection(
+      title: 'Additional Setting',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0x66FECACA), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x66FCA5A5))),
-                child: const Icon(Icons.power_settings_new, size: 20, color: Color(0xFFBE123C)),
-              ),
-              const SizedBox(width: 8),
-              const Text('Power Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-            ],
+          _buildSettingRow(
+            icon: Icons.tune,
+            label: 'Voice Settings',
+            onTap: () {},
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _showRestartModal = true),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0x66FEF3C7), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x66FCD34D))),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.restart_alt, size: 24, color: Color(0xFFD97706)),
-                        const SizedBox(height: 8),
-                        const Text('Restart Doll', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _showShutdownModal = true),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0x66FECACA), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x66FCA5A5))),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.power_off, size: 24, color: Color(0xFFBE123C)),
-                        const SizedBox(height: 8),
-                        const Text('Shutdown Doll', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFBE123C))),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          _buildSettingRow(
+            icon: Icons.security,
+            label: 'Privacy & Security',
+            onTap: () {},
+          ),
+          const SizedBox(height: 8),
+          _buildSettingRow(
+            icon: Icons.cloud_download,
+            label: 'Software Update',
+            onTap: () {},
           ),
         ],
       ),
     );
   }
 
+  // MARK: - Reusable Components
+
+  Widget _buildSection({required String title, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937).withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF374151)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F2937),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF374151)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusCard({
+    required IconData icon,
+    required String label,
+    required String status,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF374151)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 24),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  status,
+                  style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF374151)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliderControl({
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              '${value.round()}%',
+              style: const TextStyle(
+                color: Color(0xFF2A57E8),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: const Color(0xFF2A57E8),
+            inactiveTrackColor: const Color(0xFF374151),
+            thumbColor: const Color(0xFF2A57E8),
+            overlayColor: const Color(0xFF2A57E8).withOpacity(0.2),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: value,
+            min: 0,
+            max: 100,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSwitchRow({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: const Color(0xFF2A57E8),
+          inactiveThumbColor: const Color(0xFF6B7280),
+          inactiveTrackColor: const Color(0xFF374151),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWifiCard({
+    required String name,
+    required String signal,
+    required bool connected,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: connected ? const Color(0xFF2A57E8) : const Color(0xFF374151),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.wifi,
+                color: connected ? const Color(0xFF2A57E8) : const Color(0xFF6B7280),
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    signal,
+                    style: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (connected)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A57E8).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Connected',
+                style: TextStyle(
+                  color: Color(0xFF2A57E8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingRow({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F2937),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF374151)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: Color(0xFF6B7280),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // MARK: - Modals
+
   Widget _buildShutdownModal() {
     return Container(
-      color: Colors.black.withOpacity(0.4),
+      color: Colors.black.withOpacity(0.7),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.5)),
-            boxShadow: const [BoxShadow(blurRadius: 20, color: Colors.black26)],
+            color: const Color(0xFF1F2937),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF374151)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Shutdown Maya Doll?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+              const Text(
+                'Shutdown Maya Doll?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text("The doll will power off completely. You'll need to manually turn it back on.", style: TextStyle(fontSize: 14, color: Color(0xFF4B5563)), textAlign: TextAlign.center),
-              const SizedBox(height: 20),
+              const Text(
+                "The doll will power off completely. You'll need to manually turn it back on.",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
@@ -892,8 +1015,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       onPressed: () => setState(() => _showShutdownModal = false),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0x66E5E7EB), borderRadius: BorderRadius.circular(16)),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF374151),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -906,8 +1041,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0x66FECACA), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x66FCA5A5))),
-                        child: const Text('Shutdown', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFBE123C))),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Shutdown',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -922,24 +1069,37 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildRestartModal() {
     return Container(
-      color: Colors.black.withOpacity(0.4),
+      color: Colors.black.withOpacity(0.7),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.5)),
-            boxShadow: const [BoxShadow(blurRadius: 20, color: Colors.black26)],
+            color: const Color(0xFF1F2937),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF374151)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Restart Maya Doll?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+              const Text(
+                'Restart Maya Doll?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text('The doll will restart and be back online in about 30 seconds.', style: TextStyle(fontSize: 14, color: Color(0xFF4B5563)), textAlign: TextAlign.center),
-              const SizedBox(height: 20),
+              const Text(
+                'The doll will restart and be back online in about 30 seconds.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
@@ -947,8 +1107,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       onPressed: () => setState(() => _showRestartModal = false),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0x66E5E7EB), borderRadius: BorderRadius.circular(16)),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF374151),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -961,8 +1133,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0x66FEF3C7), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x66FCD34D))),
-                        child: const Text('Restart', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A57E8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Restart',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
