@@ -10,7 +10,6 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
-
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -68,6 +67,7 @@ class TaskDetail {
 // ---------------------------------------------------------------------------
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -79,14 +79,11 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> todos = [];
   List<Map<String, dynamic>> reminders = [];
   List<TaskDetail> tasks = [];
-
   bool isLoadingTodos = false;
   bool isLoadingReminders = false;
   bool isLoadingTasks = false;
-
   final NotificationServices _notification = NotificationServices();
   late final ApiClient _apiClient;
-
   String? _fcmToken;
   String? _locationStatus;
   String? _userFirstName;
@@ -98,11 +95,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-
     final publicDio = Dio();
     final protectedDio = Dio();
     _apiClient = ApiClient(publicDio, protectedDio);
-
     _setupNotifications();
     _syncUserProfile();
     _initializeAndSyncContacts();
@@ -120,7 +115,6 @@ class _HomePageState extends State<HomePage> {
     _notification.firebaseInit(context);
     _notification.setupInteractMessage(context);
     _notification.isTokenRefresh();
-
     final token = await _notification.getDeviceToken();
     setState(() => _fcmToken = token);
   }
@@ -147,7 +141,6 @@ class _HomePageState extends State<HomePage> {
         _waitForFcmToken(),
         _obtainLocationAndTimezone(),
       ]);
-
       final String? token = results[0] as String?;
       final (Position position, String timezone) =
           results[1] as (Position, String);
@@ -183,7 +176,6 @@ class _HomePageState extends State<HomePage> {
     final completer = Completer<String?>();
     const timeout = Duration(seconds: 5);
     Timer? timer;
-
     void check() {
       if (_fcmToken != null) {
         timer?.cancel();
@@ -205,72 +197,65 @@ class _HomePageState extends State<HomePage> {
   // -----------------------------------------------------------------------
   // Helper: location + timezone (with UI dialogs)
   // -----------------------------------------------------------------------
- Future<(Position, String)> _obtainLocationAndTimezone() async {
-final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
-  final String timezone = timezoneInfo.identifier;
-  // 1. Check if location service is enabled
-  final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) {
-    _showLocationServiceDialog();
-    throw Exception('Location services are disabled.');
-  }
+  Future<(Position, String)> _obtainLocationAndTimezone() async {
+    final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
+    final String timezone = timezoneInfo.identifier;
 
-  // 2. Check permission
-  LocationPermission permission = await Geolocator.checkPermission();
+    // 1. Check if location service is enabled
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog();
+      throw Exception('Location services are disabled.');
+    }
 
-  // 3. Request only foreground permission
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
+    // 2. Check permission
+    LocationPermission permission = await Geolocator.checkPermission();
 
+    // 3. Request only foreground permission
     if (permission == LocationPermission.denied) {
-      _showLocationPermissionDialog();
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showLocationPermissionDialog();
+        throw Exception('Location permission denied');
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      _showLocationPermissionDialog(permanent: true);
+      throw Exception('Location permission permanently denied');
+    }
+
+    // 4. Get location
+    try {
+      final Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      ).timeout(const Duration(seconds: 15));
+      debugPrint('Location obtained: ${position.latitude}, ${position.longitude}');
+      setState(() => _locationStatus = 'granted');
+      return (position, timezone);
+    } on TimeoutException {
+      throw Exception('Location request timed out');
+    } on PermissionDeniedException {
       throw Exception('Location permission denied');
+    } on LocationServiceDisabledException {
+      throw Exception('Location service disabled');
     }
   }
 
-  if (permission == LocationPermission.deniedForever) {
-    _showLocationPermissionDialog(permanent: true);
-    throw Exception('Location permission permanently denied');
-  }
-
-  // 4. We now have `whileInUse` or `always` — but we only need `whileInUse`
-  if (permission == LocationPermission.always) {
-    // Optional: downgrade to whileInUse if you don't need background
-    // Not needed — `always` includes foreground
-  }
-
-  // 5. Get location
-  try {
-    final Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 15),
-    ).timeout(const Duration(seconds: 15));
-
-    debugPrint('Location obtained: ${position.latitude}, ${position.longitude}');
-    setState(() => _locationStatus = 'granted');
-    return (position, timezone);
-  } on TimeoutException {
-    throw Exception('Location request timed out');
-  } on PermissionDeniedException {
-    throw Exception('Location permission denied');
-  } on LocationServiceDisabledException {
-    throw Exception('Location service disabled');
-  }
-}
   // -----------------------------------------------------------------------
   // UI dialogs
   // -----------------------------------------------------------------------
   void _showLocationServiceDialog() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Location Services Disabled'),
         content: const Text('Please enable location services to save your location.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               Geolocator.openLocationSettings();
             },
             child: const Text('Open Settings'),
@@ -283,7 +268,7 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   void _showLocationPermissionDialog({bool permanent = false}) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Location Permission Required'),
         content: Text(
           permanent
@@ -292,10 +277,10 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
         ),
         actions: [
           if (!permanent)
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               if (permanent) {
                 openAppSettings();
               } else {
@@ -313,27 +298,22 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   // Contacts sync – skip if empty
   // -----------------------------------------------------------------------
   Future<void> _initializeAndSyncContacts() async {
-  final contacts = await ContactsPermissionService.requestAndFetch(context);
-  
-  if (contacts == null) {
-    // User denied → UI already handled by service
-    return;
+    final contacts = await ContactsPermissionService.requestAndFetch(context);
+    if (contacts == null) {
+      return;
+    }
+    if (contacts.isEmpty) {
+      _showSnack('No contacts to sync');
+      return;
+    }
+    final payload = _apiClient.prepareSyncContactsPayload(contacts);
+    final response = await _apiClient.syncContacts(payload);
+    final msg = response['statusCode'] == 200
+        ? 'Contacts synced successfully'
+        : 'Failed to sync contacts: ${response['data']}';
+    _showSnack(msg);
   }
 
-  if (contacts.isEmpty) {
-    _showSnack('No contacts to sync');
-    return;
-  }
-
-  final payload = _apiClient.prepareSyncContactsPayload(contacts);
-  final response = await _apiClient.syncContacts(payload);
-  
-  final msg = response['statusCode'] == 200
-      ? 'Contacts synced successfully'
-      : 'Failed to sync contacts: ${response['data']}';
-  
-  _showSnack(msg);
-}
   void _showContactsPermissionDialog({bool permanent = false}) {
     showDialog(
       context: context,
@@ -476,12 +456,10 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   void _forceSyncAll() async {
     final snack = SnackBar(content: Text('Syncing...'), duration: Duration(seconds: 5));
     ScaffoldMessenger.of(context).showSnackBar(snack);
-
     await Future.wait([
       _syncUserProfile(),
       _initializeAndSyncContacts(),
     ]);
-
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     _showSnack('Sync completed');
   }
@@ -529,305 +507,234 @@ final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
   // -----------------------------------------------------------------------
   // UI
   // -----------------------------------------------------------------------
- @override
-Widget build(BuildContext context) {
-  return BlocBuilder<AuthBloc, AuthState>(
-    builder: (context, state) {
-      final displayName = _userFirstName?.isNotEmpty == true
-          ? _userFirstName!
-          : (state is AuthAuthenticated ? state.user?.firstName ?? 'User' : 'User');
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final displayName = _userFirstName?.isNotEmpty == true
+            ? _userFirstName!
+            : (state is AuthAuthenticated ? state.user?.firstName ?? 'User' : 'User');
 
-      return Scaffold(
-        body: Stack(
-          children: [
-            // Background matching splash page
-            Container(color: const Color(0xFF111827)),
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x992A57E8), // #2A57E8 at 60%
-                    Colors.transparent,
+        return Scaffold(
+          body: Stack(
+            children: [
+              // Background matching splash page
+              Container(color: const Color(0xFF111827)),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x992A57E8),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+              // Content
+              SafeArea(
+                child: Column(
+                  children: [
+                    // Header with profile, greeting and blue card
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Profile image
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 2,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: Image.asset(
+                                '../../../../../assets/maya_logo.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    LucideIcons.user,
+                                    color: Colors.white,
+                                    size: 24,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Greeting text
+                          Text(
+                            'Hello, $displayName!',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Let\'s explore the way in which I can\nassist you.',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Blue gradient card
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF3B82F6),
+                                  Color(0xFF2563EB),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF2563EB).withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Generate complex algorithms\nand clean code with ease.',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.25),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Start Now',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Scrollable content
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        children: [
+                          // Tasks Section
+                          if (tasks.isNotEmpty) ...[
+                            _buildSectionHeader('Active Tasks', LucideIcons.zap, () {
+                              context.go('/tasks');
+                            }),
+                            const SizedBox(height: 12),
+                            if (isLoadingTasks)
+                              const Center(child: CircularProgressIndicator())
+                            else
+                              ...tasks.take(3).map((task) => _buildTaskCard(task)),
+                            const SizedBox(height: 24),
+                          ],
+                          // Reminders Section
+                          if (reminders.isNotEmpty) ...[
+                            _buildSectionHeader('Upcoming', LucideIcons.calendar, () {
+                              context.go('/reminders');
+                            }),
+                            const SizedBox(height: 12),
+                            if (isLoadingReminders)
+                              const Center(child: CircularProgressIndicator())
+                            else
+                              ...reminders.take(3).map((reminder) => _buildReminderCard(reminder)),
+                            const SizedBox(height: 24),
+                          ],
+                          // To-Dos Section
+                          if (todos.isNotEmpty) ...[
+                            _buildSectionHeader('To-Do', LucideIcons.checkSquare, () {
+                              context.go('/todos');
+                            }),
+                            const SizedBox(height: 12),
+                            if (isLoadingTodos)
+                              const Center(child: CircularProgressIndicator())
+                            else
+                              ...todos.take(3).map((todo) => _buildToDoCard(todo)),
+                            const SizedBox(height: 24),
+                          ],
+                          const SizedBox(height: 100),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            
-            // Content
-            SafeArea(
-              child: Column(
-                children: [
-                  // Header with profile, greeting and blue card
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Profile image
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 2,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(22),
-                            child: Image.asset(
-                              '../../../../../assets/maya_logo.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  LucideIcons.user,
-                                  color: Colors.white,
-                                  size: 24,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Greeting text
-                        Text(
-                          'Hello, $displayName!',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        
-                        Text(
-                          'Let\'s explore the way in which I can\nassist you.',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Blue gradient card
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF3B82F6),
-                                Color(0xFF2563EB),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF2563EB).withOpacity(0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Generate complex algorithms\nand clean code with ease.',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.25),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Start Now',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Scrollable content
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        // Tasks Section
-                        if (tasks.isNotEmpty) ...[
-                          _buildSectionHeader('Active Tasks', LucideIcons.zap, () {
-                            context.go('/tasks');
-                          }),
-                          const SizedBox(height: 12),
-                          if (isLoadingTasks)
-                            const Center(child: CircularProgressIndicator())
-                          else
-                            ...tasks.take(3).map((task) => _buildTaskCard(task)),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // Reminders Section
-                        if (reminders.isNotEmpty) ...[
-                          _buildSectionHeader('Upcoming', LucideIcons.calendar, () {
-                            context.go('/reminders');
-                          }),
-                          const SizedBox(height: 12),
-                          if (isLoadingReminders)
-                            const Center(child: CircularProgressIndicator())
-                          else
-                            ...reminders.take(3).map((reminder) => _buildReminderCard(reminder)),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // To-Dos Section
-                        if (todos.isNotEmpty) ...[
-                          _buildSectionHeader('To-Do', LucideIcons.checkSquare, () {
-                            context.go('/todos');
-                          }),
-                          const SizedBox(height: 12),
-                          if (isLoadingTodos)
-                            const Center(child: CircularProgressIndicator())
-                          else
-                            ...todos.take(3).map((todo) => _buildToDoCard(todo)),
-                          const SizedBox(height: 24),
-                        ],
-
-                        const SizedBox(height: 100),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-  // Solid blue card at the top
-  Widget _buildSolidBlueCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A57E8),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2A57E8).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Good to see you!',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You have ${tasks.length} active tasks',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              LucideIcons.trendingUp,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // Section header with title and icon
-
-  // Task card
-  // Task card matching the first image
+  // Task card – checkbox removed
   Widget _buildTaskCard(TaskDetail task) {
     IconData statusIcon;
     Color accentColor;
     String statusLabel;
-
     switch (task.status.toLowerCase()) {
       case 'succeeded':
       case 'completed':
         statusIcon = LucideIcons.checkCircle2;
         accentColor = const Color(0xFF10B981);
-        statusLabel = '● Completed';
+        statusLabel = 'Completed';
         break;
       case 'failed':
         statusIcon = LucideIcons.xCircle;
         accentColor = const Color(0xFFEF4444);
-        statusLabel = '● Failed';
+        statusLabel = 'Failed';
         break;
       case 'approval_pending':
         statusIcon = LucideIcons.clock;
         accentColor = const Color(0xFF3B82F6);
-        statusLabel = '● In Progress';
+        statusLabel = 'In Progress';
         break;
       default:
         statusIcon = LucideIcons.clock;
         accentColor = const Color(0xFFF59E0B);
-        statusLabel = '● Pending';
+        statusLabel = 'Pending';
     }
 
     return GestureDetector(
-      onTap: () =>
-          context.go('/tasks/${task.id}', extra: {'query': task.query}),
+      onTap: () => context.go('/tasks/${task.id}', extra: {'query': task.query}),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -839,7 +746,7 @@ Widget build(BuildContext context) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status badge with dot
+            // Status badge
             Row(
               children: [
                 Text(
@@ -851,22 +758,10 @@ Widget build(BuildContext context) {
                   ),
                 ),
                 const Spacer(),
-                // Checkbox
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                // Checkbox removed
               ],
             ),
             const SizedBox(height: 12),
-
             // Task title
             Text(
               task.query.isNotEmpty ? task.query : 'No query provided',
@@ -880,8 +775,7 @@ Widget build(BuildContext context) {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-
-            // Subtitle/description
+            // Subtitle
             Text(
               'UX and Research Discussion',
               style: TextStyle(
@@ -890,33 +784,21 @@ Widget build(BuildContext context) {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Footer with timestamp and arrow
+            // Footer
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 6),
                     Text(
                       task.timestamp,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
                     ),
                   ],
                 ),
-                Icon(
-                  LucideIcons.arrowRight,
-                  size: 18,
-                  color: Colors.white.withOpacity(0.5),
-                ),
+                Icon(LucideIcons.arrowRight, size: 18, color: Colors.white.withOpacity(0.5)),
               ],
             ),
           ],
@@ -925,12 +807,12 @@ Widget build(BuildContext context) {
     );
   }
 
-  // To-Do card matching the second image
+  // To-Do card – checkbox removed
   Widget _buildToDoCard(Map<String, dynamic> todo) {
     final isCompleted = todo['status'] == 'completed';
 
     return GestureDetector(
-      onTap: isCompleted ? null : () => completeToDo(todo),
+      onTap: () => context.go('/todos/${todo['ID']}'), // Navigate to detail
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -960,37 +842,10 @@ Widget build(BuildContext context) {
                     ),
                   ),
                 ),
-                // Checkbox
-                GestureDetector(
-                  onTap: isCompleted ? null : () => completeToDo(todo),
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: isCompleted
-                          ? const Color(0xFF3B82F6)
-                          : Colors.transparent,
-                      border: Border.all(
-                        color: isCompleted
-                            ? const Color(0xFF3B82F6)
-                            : Colors.white.withOpacity(0.3),
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: isCompleted
-                        ? const Icon(
-                            LucideIcons.check,
-                            size: 14,
-                            color: Colors.white,
-                          )
-                        : null,
-                  ),
-                ),
+                // Checkbox removed
               ],
             ),
             const SizedBox(height: 6),
-
             // Description
             Text(
               todo['description'] ?? 'UX and Research Discussion',
@@ -1000,47 +855,27 @@ Widget build(BuildContext context) {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Footer with timestamp and icons
+            // Footer
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 6),
                     Text(
                       'Today, 20 Sep 2025',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    Icon(
-                      LucideIcons.copy,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.copy, size: 16, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 12),
-                    Icon(
-                      LucideIcons.trash2,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.trash2, size: 16, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 12),
-                    Icon(
-                      LucideIcons.moreVertical,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.moreVertical, size: 16, color: Colors.white.withOpacity(0.5)),
                   ],
                 ),
               ],
@@ -1051,12 +886,11 @@ Widget build(BuildContext context) {
     );
   }
 
-  // Reminder card matching the style
+  // Reminder card
   Widget _buildReminderCard(Map<String, dynamic> reminder) {
     final utcTime = DateTime.parse(reminder['reminder_time']);
     final localTime = utcTime.toLocal();
     final formattedTime = DateFormat('MMM d, h:mm a').format(localTime);
-
     return GestureDetector(
       onTap: () => context.go('/reminders'),
       child: Container(
@@ -1101,7 +935,6 @@ Widget build(BuildContext context) {
               ],
             ),
             const SizedBox(height: 6),
-
             // Description
             Text(
               reminder['description'] ?? 'UX and Research Discussion',
@@ -1111,47 +944,27 @@ Widget build(BuildContext context) {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Footer with timestamp and icons
+            // Footer
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 6),
                     Text(
                       formattedTime,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    Icon(
-                      LucideIcons.copy,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.copy, size: 16, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 12),
-                    Icon(
-                      LucideIcons.trash2,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.trash2, size: 16, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 12),
-                    Icon(
-                      LucideIcons.moreVertical,
-                      size: 16,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
+                    Icon(LucideIcons.moreVertical, size: 16, color: Colors.white.withOpacity(0.5)),
                   ],
                 ),
               ],
@@ -1162,7 +975,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // Section header with title and "View all"
+  // Section header
   Widget _buildSectionHeader(String title, IconData icon, VoidCallback onTap) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1202,6 +1015,4 @@ Widget build(BuildContext context) {
       child: Icon(icon, size: 14, color: Colors.white.withOpacity(0.7)),
     );
   }
-
-
 }

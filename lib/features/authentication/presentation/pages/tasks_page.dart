@@ -405,18 +405,7 @@ class _TasksPageState extends State<TasksPage> {
                   ),
                 ),
                 // Checkbox
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
+             ],
             ),
             const SizedBox(height: 12),
 
