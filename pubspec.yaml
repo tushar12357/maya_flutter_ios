@@ -85,6 +85,7 @@ dependencies:
   flutter_svg: ^2.2.1
   timeago: ^3.7.1
   animate_do: ^4.2.0
+  flutter_blue_plus: ^2.0.1
 
 dev_dependencies:
   flutter_test:

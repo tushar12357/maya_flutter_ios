@@ -66,6 +66,10 @@
 	<string>This app needs camera access for capturing photos or scanning.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to select or upload photos.</string>
+<key>NSBluetoothAlwaysUsageDescription</key>
+<string>App needs Bluetooth to configure your Maya Doll.</string>
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>App needs Bluetooth to configure your Maya Doll.</string>
 
 </dict>
 </plist>
