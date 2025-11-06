@@ -32,18 +32,20 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _callNotifications = true;
 
   // BLE
-  final  flutterBlue = FlutterBluePlus.instance;
+  final flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? _piDevice;
-  BluetoothCharacteristic? _cmdChar;
-  BluetoothCharacteristic? _respChar;
+  BluetoothCharacteristic? _ssidChar;
+  BluetoothCharacteristic? _passChar;
+  BluetoothCharacteristic? _statusChar;
   bool _isScanning = false;
   String _bleStatus = 'Bluetooth Off';
   List<Map<String, dynamic>> _bleWifiNetworks = [];
 
-  // UUIDs
-  static const String _svcUuid = '0000feed-0000-1000-8000-00805f9b34fb';
-  static const String _cmdUuid = '0000beef-0000-1000-8000-00805f9b34fb';
-  static const String _respUuid = '0000feed-0000-1000-8000-00805f9b34fc';
+  // Custom UUIDs
+  static const String PROV_SERVICE_UUID = "be5bc66e-94a7-4337-87d6-a623ce14e709";
+  static const String SSID_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1";
+  static const String PASS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2";
+  static const String STATUS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef3";
 
   // Dependencies
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
@@ -108,7 +110,9 @@ class _SettingsPageState extends State<SettingsPage> {
       for (final r in results) {
         final name = r.device.platformName;
         final adv = r.advertisementData;
-        final hasService = adv.serviceUuids.map((u) => u.toString().toLowerCase()).contains(_svcUuid.toLowerCase());
+        final hasService = adv.serviceUuids
+            .map((u) => u.toString().toLowerCase())
+            .contains(PROV_SERVICE_UUID.toLowerCase());
 
         if (name == 'Pi-Configurator' || hasService) {
           _piDevice = r.device;
@@ -129,7 +133,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (d == null) return;
 
     try {
-      // Required license (free for individuals/small teams)
       await d.connect(
         license: License.free,
         timeout: const Duration(seconds: 12),
@@ -141,29 +144,30 @@ class _SettingsPageState extends State<SettingsPage> {
 
       final services = await d.discoverServices();
       for (final s in services) {
-        if (s.uuid.toString().toLowerCase() == _svcUuid.toLowerCase()) {
+        if (s.uuid.toString().toLowerCase() == PROV_SERVICE_UUID.toLowerCase()) {
           for (final c in s.characteristics) {
             final cu = c.uuid.toString().toLowerCase();
-            if (cu == _cmdUuid.toLowerCase()) _cmdChar = c;
-            if (cu == _respUuid.toLowerCase()) _respChar = c;
+            if (cu == SSID_CHAR_UUID.toLowerCase()) _ssidChar = c;
+            if (cu == PASS_CHAR_UUID.toLowerCase()) _passChar = c;
+            if (cu == STATUS_CHAR_UUID.toLowerCase()) _statusChar = c;
           }
         }
       }
 
-      if (_respChar != null) {
-        await _respChar!.setNotifyValue(true);
+      if (_statusChar != null) {
+        await _statusChar!.setNotifyValue(true);
 
-        _respChar!.lastValueStream.listen((bytes) {
+        _statusChar!.lastValueStream.listen((bytes) {
           if (bytes.isEmpty) return;
           try {
-            final msg = jsonDecode(utf8.decode(bytes));
-            final result = msg['result'];
+            final msg = utf8.decode(bytes).trim();
+            final jsonMsg = jsonDecode(msg);
 
-            if (result == 'SCAN') {
-              final nets = (msg['networks'] as List)
+            if (jsonMsg['result'] == 'SCAN') {
+              final nets = (jsonMsg['networks'] as List)
                   .map((e) => {
                         'name': e['ssid'],
-                        'signal': 'Good',
+                        'signal': _getSignalStrength(e['rssi'] ?? -100),
                         'connected': false,
                       })
                   .toList();
@@ -171,19 +175,26 @@ class _SettingsPageState extends State<SettingsPage> {
                 _bleWifiNetworks = nets;
                 _bleStatus = 'WiFi list ready';
               });
-            } else if (result == 'CONNECT') {
-              final status = msg['status'] == 'OK'
-                  ? 'Connected to ${msg['ssid']}'
+            } else if (jsonMsg['result'] == 'CONNECT') {
+              final status = jsonMsg['status'] == 'OK'
+                  ? 'Connected to ${jsonMsg['ssid']}'
                   : 'WiFi failed';
               _showSnackBar(status);
+              if (jsonMsg['status'] == 'OK') {
+                setState(() => _wifiConnected = true);
+              }
             }
-          } catch (_) {}
+          } catch (e) {
+            // Fallback: treat raw string as status
+            // _showSnackBar('Status: $msg');
+          }
         });
 
-        await _sendBleCmd({'cmd': 'SCAN'});
+        // Trigger WiFi scan
+        await _sendBleCmd('SCAN');
         setState(() => _bleStatus = 'Fetching WiFi...');
       } else {
-        setState(() => _bleStatus = 'Resp char not found');
+        setState(() => _bleStatus = 'Status char not found');
       }
     } catch (e) {
       setState(() => _bleStatus = 'Connect error: $e');
@@ -191,13 +202,39 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  String _getSignalStrength(int rssi) {
+    if (rssi >= -50) return 'Excellent';
+    if (rssi >= -60) return 'Good';
+    if (rssi >= -70) return 'Fair';
+    return 'Weak';
+  }
+
   // ──────────────────────────────────────────────────────────────
   // BLE: Send Command
   // ──────────────────────────────────────────────────────────────
-  Future<void> _sendBleCmd(Map<String, dynamic> jsonObj) async {
-    if (_cmdChar == null) return;
-    final data = utf8.encode(jsonEncode(jsonObj));
-    await _cmdChar!.write(data, withoutResponse: true);
+  Future<void> _sendBleCmd(String cmd) async {
+    if (_ssidChar == null) return;
+    final data = utf8.encode(cmd);
+    await _ssidChar!.write(data, withoutResponse: true);
+  }
+
+  Future<void> _sendWifiCredentials(String ssid, String psk) async {
+    if (_ssidChar == null || _passChar == null) return;
+
+    try {
+      // Send SSID
+      await _ssidChar!.write(utf8.encode(ssid), withoutResponse: true);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Send Password
+      await _passChar!.write(utf8.encode(psk), withoutResponse: true);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Trigger connect
+      await _ssidChar!.write(utf8.encode('CONNECT'), withoutResponse: true);
+    } catch (e) {
+      _showSnackBar('Send failed: $e');
+    }
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -241,7 +278,7 @@ class _SettingsPageState extends State<SettingsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _sendBleCmd({'cmd': 'CONNECT', 'ssid': ssid, 'psk': pass});
+              _sendWifiCredentials(ssid, pass);
             },
             child: const Text('Connect', style: TextStyle(color: Colors.blue)),
           ),
@@ -412,7 +449,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   // ──────────────────────────────────────────────────────────────
-  // UI Sections (unchanged – only Bluetooth & WiFi use BLE state)
+  // UI Sections
   // ──────────────────────────────────────────────────────────────
   Widget _buildPowerSection() => _buildSection(
         title: 'Power',
@@ -527,7 +564,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ]),
       );
 
- Widget _buildNotificationSection() {
+  Widget _buildNotificationSection() {
     return _buildSection(
       title: 'Notification',
       child: Column(
@@ -580,6 +617,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
   Widget _buildAdditionalSettingsSection() => _buildSection(
         title: 'Additional Setting',
         child: Column(children: [
@@ -592,7 +630,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
   // ──────────────────────────────────────────────────────────────
-  // Reusable UI Widgets (unchanged)
+  // Reusable UI Widgets
   // ──────────────────────────────────────────────────────────────
   Widget _buildSection({required String title, required Widget child}) => Container(
         padding: const EdgeInsets.all(16),
