@@ -34,9 +34,9 @@ class _GenerationsState extends State<Generations> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error fetching generations: $e')));
+      // ScaffoldMessenger.of(
+      //   context,
+      // ).showSnackBar(SnackBar(content: Text('Error fetching generations: $e')));
     }
     setState(() => isLoading = false);
   }
@@ -59,16 +59,16 @@ class _GenerationsState extends State<Generations> {
         _createdByController.clear();
         fetchGenerations();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create generation: ${response['data']}'),
-          ),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Failed to create generation: ${response['data']}'),
+        //   ),
+        // );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error creating generation: $e')));
+      // ScaffoldMessenger.of(
+      //   context,
+      // ).showSnackBar(SnackBar(content: Text('Error creating generation: $e')));
     }
     setState(() => isCreating = false);
   }
@@ -82,16 +82,16 @@ class _GenerationsState extends State<Generations> {
         );
         fetchGenerations();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to approve generation: ${response['data']}'),
-          ),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text('Failed to approve generation: ${response['data']}'),
+        //   ),
+        // );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error approving generation: $e')));
+      // ScaffoldMessenger.of(
+      //   context,
+      // ).showSnackBar(SnackBar(content: Text('Error approving generation: $e')));
     }
   }
 
@@ -104,18 +104,18 @@ class _GenerationsState extends State<Generations> {
         );
         fetchGenerations();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to regenerate generation: ${response['data']}',
-            ),
-          ),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text(
+        //       'Failed to regenerate generation: ${response['data']}',
+        //     ),
+        //   ),
+        // );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error regenerating generation: $e')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Error regenerating generation: $e')),
+      // );
     }
   }
 

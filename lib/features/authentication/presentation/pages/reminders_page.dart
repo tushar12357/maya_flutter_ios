@@ -80,9 +80,9 @@ class _RemindersPageState extends State<RemindersPage> {
       }
     } catch (e) {
       print('Exception fetching reminders: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching reminders: $e')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Error fetching reminders: $e')),
+      // );
     } finally {
       setState(() {
         isLoadingReminders = false;
@@ -239,7 +239,7 @@ class _RemindersPageState extends State<RemindersPage> {
                         child: Row(
                           children: [
                             GestureDetector(
-                              onTap: () => context.pop(),
+                              onTap: () => context.push('/other'),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(

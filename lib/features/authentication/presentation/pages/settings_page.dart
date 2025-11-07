@@ -233,7 +233,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Trigger connect
       await _ssidChar!.write(utf8.encode('CONNECT'), withoutResponse: true);
     } catch (e) {
-      _showSnackBar('Send failed: $e');
+      // _showSnackBar('Send failed: $e');
     }
   }
 
@@ -308,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() => _wakeWordEnabled = wake['data']['mode'] == 'on');
       }
     } catch (e) {
-      _showSnackBar('Audio fetch error: $e');
+      // _showSnackBar('Audio fetch error: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -348,7 +348,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       _showSnackBar(r['statusCode'] == 200 ? 'Prefs saved' : 'Save failed');
     } catch (e) {
-      _showSnackBar('Error: $e');
+      // _showSnackBar('Error: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -361,7 +361,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (r['statusCode'] == 200) _showSnackBar(successMsg);
       else _showSnackBar('Failed');
     } catch (e) {
-      _showSnackBar('Error: $e');
+      // _showSnackBar('Error: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -373,7 +373,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final r = await call();
       _showSnackBar(r['statusCode'] == 200 ? ok : err);
     } catch (e) {
-      _showSnackBar('Error: $e');
+      // _showSnackBar('Error: $e');
     } finally {
       setState(() => _isLoading = false);
     }

@@ -126,7 +126,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final userResp = await _apiClient.getCurrentUser();
       if (userResp['statusCode'] != 200) {
-        _showSnack('User fetch failed: ${userResp['data']}');
+        _showSnack('User fetch failed: ${userResp['data']['message']}');
         return;
       }
       final userData = userResp['data'] as Map<String, dynamic>;
@@ -165,7 +165,7 @@ class _HomePageState extends State<HomePage> {
         _showSnack('Profile sync failed: ${updateResp['data']}');
       }
     } catch (e) {
-      _showSnack('Sync error: $e');
+      // _showSnack('Sync error: $e');
     }
   }
 
@@ -310,7 +310,7 @@ class _HomePageState extends State<HomePage> {
     final response = await _apiClient.syncContacts(payload);
     final msg = response['statusCode'] == 200
         ? 'Contacts synced successfully'
-        : 'Failed to sync contacts: ${response['data']}';
+        : 'Failed to sync contacts: ${response['data']['message']}';
     _showSnack(msg);
   }
 

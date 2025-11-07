@@ -310,9 +310,9 @@ class _EditToDoDialogState extends State<EditToDoDialog> {
                                 );
                                 Navigator.pop(context);
                               } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error updating to-do: $e')),
-                                );
+                                // ScaffoldMessenger.of(context).showSnackBar(
+                                //   SnackBar(content: Text('Error updating to-do: $e')),
+                                // );
                               }
                             }
                           : null,
@@ -332,9 +332,9 @@ class _EditToDoDialogState extends State<EditToDoDialog> {
                           widget.onDelete(id);
                           Navigator.pop(context);
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error deleting to-do: $e')),
-                          );
+                          // ScaffoldMessenger.of(context).showSnackBar(
+                          //   SnackBar(content: Text('Error deleting to-do: $e')),
+                          // );
                         }
                       },
                       child: const Text('Delete'),

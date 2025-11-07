@@ -97,7 +97,7 @@ class ProfilePage extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => context.go('/other'),
+                onTap: () => context.push('/other'),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(

@@ -189,7 +189,7 @@ class _TaskDetailPageState extends State<TaskDetailPage>
                           color: Colors.white,
                           size: 20,
                         ),
-                        onPressed: () => context.go('/tasks'),
+                        onPressed: () => context.push('/tasks'),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
