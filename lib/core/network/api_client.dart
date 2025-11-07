@@ -734,7 +734,7 @@ Future<Map<String,dynamic>> getGenerations() async {
   return {'statusCode': response.statusCode, 'data': response.data};
 }
 
-Future<Map<String,dynamic>> updateGenerationStatus(int generationId, String action)async{
+Future<Map<String,dynamic>> updateGenerationStatus(String generationId, String action)async{
   final response= await _protectedDio.patch('/productivity/generations/status',
   data:{'generation_id': generationId, 'action': action});
   return {'statusCode': response.statusCode, 'data': response.data};

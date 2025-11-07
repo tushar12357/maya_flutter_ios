@@ -24,7 +24,7 @@ class _GenerationsPageState extends State<GenerationsPage> {
     });
   }
 
-  Future<void> _updateStatus(int generationId, String action) async {
+  Future<void> _updateStatus(String generationId, String action) async {
     final result = await getIt<ApiClient>().updateGenerationStatus(generationId, action);
     if (result['statusCode'] == 200 && result['data']['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,7 +193,7 @@ class _GenerationsPageState extends State<GenerationsPage> {
                                     itemBuilder: (context, index) {
                                       final g = generations[index];
 
-                                      final id = int.tryParse(g['id']?.toString() ?? '') ?? 0;
+                                      final id = g['id']?.toString() ?? '';
                                       final title = g['input']?['message'] ?? 'Untitled';
                                       final type = g['type'] ?? 'unknown';
                                       final status = g['status'] ?? 'unknown';
