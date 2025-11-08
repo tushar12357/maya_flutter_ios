@@ -142,44 +142,36 @@ class NotificationServices {
   
 Future<String?> getDeviceToken() async {
   try {
-    // Skip APNs logic entirely on simulator (no push support)
-    if (Platform.isIOS) {
-      final isSimulator = Platform.environment['SIMULATOR_DEVICE_NAME'] != null;
-      if (!isSimulator) {
-        // 1. Request APNs token first (real device only)
-        String? apnsToken = await messaging.getAPNSToken();
+    // final isIOS = Platform.isIOS;
+    // final isSimulator = Platform.environment['SIMULATOR_DEVICE_NAME'] != null;
 
-        if (apnsToken == null) {
-          await Future.delayed(const Duration(seconds: 2));
-          apnsToken = await messaging.getAPNSToken();
-        }
+    // ✅ Force-enable FCM even if APNs is missing
+    await FirebaseMessaging.instance.setAutoInitEnabled(true);
 
-        if (apnsToken == null) {
-          if (kDebugMode) {
-            print('⚠️ APNs token not available after retry');
-          }
-          // Don’t throw — just skip to FCM
-        }
-      }
-    }
+    // ✅ Simulator path (skip APNs completely)
+    // if (isIOS && isSimulator) {
+    //   print('✅ Running on iOS Simulator — skipping APNs');
+    //   final token = await FirebaseMessaging.instance.getToken();
+    //   print('✅ Simulator FCM Token: $token');
+    //   return token;
+    // }
 
-    // 2. Get FCM token (works on both iOS + Android)
-    final token = await messaging.getToken();
-    if (token == null) {
-      if (kDebugMode) {
-        print('⚠️ Failed to get FCM token');
-      }
-      return null;
-    }
+    // // ✅ Real iPhone — get APNs
+    // if (isIOS && !isSimulator) {
+    //   String? apns = await FirebaseMessaging.instance.getAPNSToken();
+    //   print('✅ APNs Token: $apns');
+    // }
 
-    if (kDebugMode) {
-      print('✅ FCM Token: $token');
-    }
+    // ✅ Android & real iPhone
+
+      String? apns = await FirebaseMessaging.instance.getAPNSToken();
+      print('✅ APNs Token: $apns');
+    final token = await FirebaseMessaging.instance.getToken();
+    print('✅ FCM Token: $token');
     return token;
+
   } catch (e) {
-    if (kDebugMode) {
-      print('❌ Error getting device token: $e');
-    }
+    print('❌ Still failing: $e');
     return null;
   }
 }
