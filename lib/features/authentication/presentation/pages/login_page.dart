@@ -75,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     // Cloud Image (replace with your asset)
                     Image.asset(
-                      '../../../../../assets/Layer_1.png',
+                      'assets/LAYER_1.png',
                       height: 180,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {

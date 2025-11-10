@@ -557,7 +557,7 @@ class _HomePageState extends State<HomePage> {
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(22),
                               child: Image.asset(
-                                '../../../../../assets/maya_logo.png',
+                                'assets/maya_logo.png',
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Icon(

@@ -65,7 +65,7 @@ class SplashPage extends StatelessWidget {
                       const SizedBox(height: 40),
                       // Logo
                       Image.asset(
-                        '../../../../../assets/maya_logo.png',
+                        'assets/maya_logo.png',
                         height: 300,
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {

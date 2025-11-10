@@ -455,7 +455,7 @@ void _handleError(String msg) {
                                   shape: BoxShape.circle,
                                   image: const DecorationImage(
                                     image: AssetImage(
-                                      '../../../assets/Layer_1.png',
+                                      'assets/LAYER_1.png',
                                     ),
                                     fit: BoxFit.contain,
                                   ),

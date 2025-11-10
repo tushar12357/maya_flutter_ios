@@ -23,25 +23,19 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>com.ravan.maya</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q
-</string>
-			</array>
-		</dict>
-	</array>
+<array>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>com.ravan.maya</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q</string>
+        </array>
+    </dict>
+</array>
+
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
