@@ -108,7 +108,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - assets/LAYER_1.png
+    - assets/Layer_1.png
     - assets/maya_logo.png
 
   # To add assets to your application, add an assets section, like this:
