@@ -84,7 +84,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _onStatusChange() {
+ void _onStatusChange() {
     final current = _session!.status;
     setState(() {
       _status = _mapStatusToSpeech(current);
@@ -94,7 +94,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
           current == UltravoxSessionStatus.thinking;
     });
 
-    // Stop listening pulse, start speaking pulse
+    // Animation logic (unchanged)
     if (current == UltravoxSessionStatus.speaking) {
       _pulseController.stop();
       _speakingPulseController.repeat();
@@ -102,44 +102,70 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
       _speakingPulseController.stop();
       _pulseController.repeat();
     } else {
-      _speakingPulseController.stop();
       _pulseController.stop();
+      _speakingPulseController.stop();
     }
 
+    // Clear live transcript when idle
     if (current == UltravoxSessionStatus.idle &&
-        _previousStatus == 'speaking') {
-      Future.delayed(const Duration(seconds: 2), () {
+        _previousStatus.contains('speaking')) {
+      Future.delayed(const Duration(seconds: 1), () {
         if (!mounted) return;
         setState(() {
           _currentTranscriptChunk = '';
-          _isListening = false;
-          _isConnecting = false;
         });
       });
     }
+
     _previousStatus = current.toString();
   }
 
   void _onDataMessage() {
-    final message = _session!.lastDataMessage;
-    if (message['type'] == 'transcript') {
-      final lastTranscript = _session!.transcripts.last;
-      if (mounted && lastTranscript.isFinal) {
-        setState(() {
-          _currentTranscriptChunk = lastTranscript.text;
-          _conversation.add({
-            'type': lastTranscript.speaker == Role.user ? 'user' : 'maya',
-            'text': _currentTranscriptChunk,
+    final transcripts = _session!.transcripts;
+
+    if (transcripts.isEmpty) return;
+
+    // Get the latest transcript (could be partial or final)
+    final latestTranscript = transcripts.last;
+
+    // Update live streaming chunk (even if not final)
+    setState(() {
+      _currentTranscriptChunk = latestTranscript.text;
+    });
+
+    // Only add to conversation when it's final AND not already added
+    if (latestTranscript.isFinal) {
+      final text = latestTranscript.text.trim();
+      if (text.isNotEmpty) {
+        // Avoid duplicates
+        final lastMsg = _conversation.isNotEmpty
+            ? _conversation.last['text']
+            : null;
+        final speakerType = latestTranscript.speaker == Role.user
+            ? 'user'
+            : 'maya';
+
+        if (lastMsg != text ||
+            _conversation.isEmpty ||
+            _conversation.last['type'] != speakerType) {
+          setState(() {
+            _conversation.add({'type': speakerType, 'text': text});
+            // Keep only last 10 messages
+            if (_conversation.length > 10) {
+              _conversation.removeAt(0);
+            }
           });
-          _currentTranscriptChunk = '';
-          if (_conversation.length > 10) {
-            _conversation.removeAt(0);
-          }
-        });
+        }
       }
+
+      // Clear live chunk after final
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _session!.transcripts.last == latestTranscript) {
+          setState(() => _currentTranscriptChunk = '');
+        }
+      });
     }
   }
-
   void _onDebugMessage() {
     final message = _session!.lastExperimentalMessage;
     if (mounted) {
@@ -531,40 +557,58 @@ void _handleError(String msg) {
                   ),
                   child: Column(
                     children: [
-                      if (_currentTranscriptChunk.isNotEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0x332A57E8)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.record_voice_over,
-                                color: Color(0xFF2A57E8),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _currentTranscriptChunk,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Row(
+                     if (_currentTranscriptChunk.isNotEmpty)
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0x332A57E8)),
+    ),
+    child: Row(
+      children: [
+        if (_session!.transcripts.isNotEmpty)
+          Icon(
+            _session!.transcripts.last.speaker == Role.user
+                ? Icons.person
+                : Icons.smart_toy,
+            color: const Color(0xFF2A57E8),
+            size: 20,
+          )
+        else
+          const Icon(
+            Icons.person,
+            color: Color(0xFF2A57E8),
+            size: 20,
+          ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _currentTranscriptChunk,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+          ),
+        ),
+
+        if (_session!.transcripts.isNotEmpty &&
+            !_session!.transcripts.last.isFinal)
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(Colors.cyan),
+            ),
+          ),
+      ],
+    ),
+  ),
+
+                        Row(
                         children: [
                           Expanded(
                             child: Container(
