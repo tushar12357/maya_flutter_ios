@@ -196,7 +196,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     // Play 5 quick keypress sounds with slight delays
     for (int i = 0; i < 5; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
-      await _audioPlayer.play(AssetSource('assets/typing.mp3')); // Adjust path as needed
+      await _audioPlayer.play(AssetSource('typing.mp3')); // Adjust path as needed
     }
 
     // Reset flag after a short delay
