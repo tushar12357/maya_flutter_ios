@@ -508,35 +508,35 @@ class _HomePageState extends State<HomePage> {
   // UI
   // -----------------------------------------------------------------------
   @override
-  Widget build(BuildContext context) {
+ Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final displayName = _userFirstName?.isNotEmpty == true
             ? _userFirstName!
-            : (state is AuthAuthenticated ? state.user?.firstName ?? 'User' : 'User');
+            : (state is AuthAuthenticated
+                  ? state.user.firstName ?? 'User'
+                  : 'User');
 
         return Scaffold(
           body: Stack(
             children: [
-              // Background matching splash page
+              // Background
               Container(color: const Color(0xFF111827)),
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x992A57E8),
-                      Colors.transparent,
-                    ],
+                    colors: [Color(0x992A57E8), Colors.transparent],
                   ),
                 ),
               ),
+
               // Content
               SafeArea(
                 child: Column(
                   children: [
-                    // Header with profile, greeting and blue card
+                    // Header: Greeting + Blue Card
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                       child: Column(
@@ -570,7 +570,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          // Greeting text
+
+                          // Greeting
                           Text(
                             'Hello, $displayName!',
                             style: const TextStyle(
@@ -590,7 +591,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          // Blue gradient card
+
+                          // Blue gradient card (kept as per design)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
@@ -598,15 +600,14 @@ class _HomePageState extends State<HomePage> {
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF3B82F6),
-                                  Color(0xFF2563EB),
-                                ],
+                                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
                               ),
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF2563EB).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFF2563EB,
+                                  ).withOpacity(0.3),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -625,21 +626,27 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.25),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'Start Now',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                GestureDetector(
+                                  onTap: () {
+                                    context.push('/maya');
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.30),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'Start Now',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -649,48 +656,61 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
+
                     const SizedBox(height: 24),
-                    // Scrollable content
+
+                    // Scrollable Sections
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         children: [
-                          // Tasks Section
-                          if (tasks.isNotEmpty) ...[
-                            _buildSectionHeader('Active Tasks', LucideIcons.zap, () {
-                              context.go('/tasks');
-                            }),
-                            const SizedBox(height: 12),
-                            if (isLoadingTasks)
-                              const Center(child: CircularProgressIndicator())
-                            else
-                              ...tasks.take(3).map((task) => _buildTaskCard(task)),
-                            const SizedBox(height: 24),
-                          ],
-                          // Reminders Section
-                          if (reminders.isNotEmpty) ...[
-                            _buildSectionHeader('Upcoming', LucideIcons.calendar, () {
-                              context.go('/reminders');
-                            }),
-                            const SizedBox(height: 12),
-                            if (isLoadingReminders)
-                              const Center(child: CircularProgressIndicator())
-                            else
-                              ...reminders.take(3).map((reminder) => _buildReminderCard(reminder)),
-                            const SizedBox(height: 24),
-                          ],
-                          // To-Dos Section
-                          if (todos.isNotEmpty) ...[
-                            _buildSectionHeader('To-Do', LucideIcons.checkSquare, () {
-                              context.go('/todos');
-                            }),
-                            const SizedBox(height: 12),
-                            if (isLoadingTodos)
-                              const Center(child: CircularProgressIndicator())
-                            else
-                              ...todos.take(3).map((todo) => _buildToDoCard(todo)),
-                            const SizedBox(height: 24),
-                          ],
+                          // === Active Tasks Section ===
+                          _buildSectionHeader(
+                            'Active Tasks',
+                            LucideIcons.zap,
+                            () => context.go('/tasks'),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isLoadingTasks)
+                            const Center(child: CircularProgressIndicator())
+                          else if (tasks.isEmpty)
+                            _buildEmptyState('No active tasks')
+                          else
+                            ...tasks
+                                .take(3)
+                                .map((task) => _buildTaskCard(task)),
+                          const SizedBox(height: 24),
+
+                          _buildSectionHeader(
+                            'Reminders',
+                            LucideIcons.calendar,
+                            () => context.go('/reminders'),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isLoadingReminders)
+                            const Center(child: CircularProgressIndicator())
+                          else if (reminders.isEmpty)
+                            _buildEmptyState('No reminders')
+                          else
+                            ...reminders.map(
+                              (reminder) => _buildReminderCard(reminder),
+                            ),
+                          const SizedBox(height: 24),
+                          // === To-Do Section ===
+                          _buildSectionHeader(
+                            'To-Do',
+                            LucideIcons.clipboardList,
+                            () => context.go('/todos'),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isLoadingTodos)
+                            const Center(child: CircularProgressIndicator())
+                          else if (todos.isEmpty)
+                            _buildEmptyState('No to-dos')
+                          else
+                            ...todos
+                                .take(3)
+                                .map((todo) => _buildToDoCard(todo)),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -705,36 +725,120 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Task card – checkbox removed
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E3A5F).withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withOpacity(0.6),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Solid blue card at the top
+  Widget _buildSolidBlueCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A57E8),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2A57E8).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Good to see you!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You have ${tasks.length} active tasks',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              LucideIcons.trendingUp,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Section header with title and "View all"
+
+  // Task card
+  // Task card matching the first image
   Widget _buildTaskCard(TaskDetail task) {
     IconData statusIcon;
     Color accentColor;
     String statusLabel;
+
     switch (task.status.toLowerCase()) {
       case 'succeeded':
       case 'completed':
         statusIcon = LucideIcons.checkCircle2;
         accentColor = const Color(0xFF10B981);
-        statusLabel = 'Completed';
+        statusLabel = '● Completed';
         break;
       case 'failed':
         statusIcon = LucideIcons.xCircle;
         accentColor = const Color(0xFFEF4444);
-        statusLabel = 'Failed';
+        statusLabel = '● Failed';
         break;
       case 'approval_pending':
         statusIcon = LucideIcons.clock;
         accentColor = const Color(0xFF3B82F6);
-        statusLabel = 'In Progress';
+        statusLabel = '● In Progress';
         break;
       default:
         statusIcon = LucideIcons.clock;
         accentColor = const Color(0xFFF59E0B);
-        statusLabel = 'Pending';
+        statusLabel = '● Pending';
     }
 
     return GestureDetector(
-      onTap: () => context.go('/tasks/${task.id}', extra: {'query': task.query}),
+      onTap: () =>
+          context.push('/tasks/${task.id}', extra: {'query': task.query}),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -746,22 +850,17 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status badge
-            Row(
-              children: [
-                Text(
-                  statusLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: accentColor,
-                  ),
-                ),
-                const Spacer(),
-                // Checkbox removed
-              ],
+            // Status badge with dot
+            Text(
+              statusLabel,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: accentColor,
+              ),
             ),
             const SizedBox(height: 12),
+
             // Task title
             Text(
               task.query.isNotEmpty ? task.query : 'No query provided',
@@ -775,30 +874,37 @@ class _HomePageState extends State<HomePage> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            // Subtitle
-            Text(
-              'UX and Research Discussion',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
-              ),
-            ),
+
+            // Subtitle/description
+            
             const SizedBox(height: 12),
-            // Footer
+
+            // Footer with timestamp and arrow
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       task.timestamp,
-                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
                     ),
                   ],
                 ),
-                Icon(LucideIcons.arrowRight, size: 18, color: Colors.white.withOpacity(0.5)),
+                Icon(
+                  LucideIcons.arrowRight,
+                  size: 18,
+                  color: Colors.white.withOpacity(0.5),
+                ),
               ],
             ),
           ],
@@ -807,12 +913,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // To-Do card – checkbox removed
+  // To-Do card matching the second image
   Widget _buildToDoCard(Map<String, dynamic> todo) {
     final isCompleted = todo['status'] == 'completed';
 
     return GestureDetector(
-      onTap: () => context.go('/todos/${todo['ID']}'), // Navigate to detail
+      onTap: isCompleted ? null : () => completeToDo(todo),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -824,58 +930,40 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Title
-                Expanded(
-                  child: Text(
-                    todo['title'],
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                      decoration: isCompleted
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      decorationColor: Colors.white.withOpacity(0.4),
-                    ),
-                  ),
-                ),
-                // Checkbox removed
-              ],
-            ),
-            const SizedBox(height: 6),
-            // Description
+            // Title
             Text(
-              todo['description'] ?? 'UX and Research Discussion',
+              todo['title'],
               style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                decoration: isCompleted
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
+                decorationColor: Colors.white.withOpacity(0.4),
               ),
             ),
-            const SizedBox(height: 12),
-            // Footer
+            const SizedBox(height: 6),
+
+            // Footer with timestamp and icons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
+                    Icon(
+                      LucideIcons.clock,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Today, 20 Sep 2025',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
                     ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Icon(LucideIcons.copy, size: 16, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 12),
-                    Icon(LucideIcons.trash2, size: 16, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 12),
-                    Icon(LucideIcons.moreVertical, size: 16, color: Colors.white.withOpacity(0.5)),
                   ],
                 ),
               ],
@@ -886,96 +974,151 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Reminder card
+  // Reminder card matching the style
   Widget _buildReminderCard(Map<String, dynamic> reminder) {
-    final utcTime = DateTime.parse(reminder['reminder_time']);
-    final localTime = utcTime.toLocal();
-    final formattedTime = DateFormat('MMM d, h:mm a').format(localTime);
-    return GestureDetector(
-      onTap: () => context.go('/reminders'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2D4A6F).withOpacity(0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Title
-                Expanded(
-                  child: Text(
-                    reminder['title'] ?? 'Reminder',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+    try {
+      final String timeStr = reminder['reminder_time'] as String;
+      final DateTime utcTime = DateTime.parse(timeStr).toUtc();
+      final DateTime localTime = utcTime.toLocal(); // IST
+
+      final now = DateTime.now();
+      final isToday =
+          localTime.year == now.year &&
+          localTime.month == now.month &&
+          localTime.day == now.day;
+      final isTomorrow =
+          localTime.year == now.add(const Duration(days: 1)).year &&
+          localTime.month == now.add(const Duration(days: 1)).month &&
+          localTime.day == now.add(const Duration(days: 1)).day;
+      final isPast = localTime.isBefore(now);
+
+      String dateLabel;
+      if (isToday) {
+        dateLabel = 'Today';
+      } else if (isTomorrow) {
+        dateLabel = 'Tomorrow';
+      } else if (isPast) {
+        dateLabel = DateFormat('MMM d').format(localTime);
+      } else {
+        dateLabel = DateFormat('MMM d').format(localTime);
+      }
+
+      final timeText = DateFormat('h:mm a').format(localTime);
+      final fullDateTime = '$dateLabel, $timeText';
+
+      return GestureDetector(
+        onTap: () => context.go('/reminders'),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isPast
+                ? const Color(0xFF2D4A6F).withOpacity(0.4)
+                : const Color(0xFF2D4A6F).withOpacity(0.6),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isPast
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.white.withOpacity(0.1),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      reminder['title'] ?? 'Reminder',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isPast
+                            ? Colors.white.withOpacity(0.6)
+                            : Colors.white,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                // Bell icon
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: isPast
+                          ? Colors.grey.withOpacity(0.2)
+                          : const Color(0xFFF59E0B).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      LucideIcons.bell,
+                      size: 14,
+                      color: isPast ? Colors.grey : const Color(0xFFF59E0B),
+                    ),
                   ),
-                  child: const Icon(
-                    LucideIcons.bell,
-                    size: 14,
-                    color: Color(0xFFF59E0B),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            // Description
-            Text(
-              reminder['description'] ?? 'UX and Research Discussion',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            // Footer
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(LucideIcons.clock, size: 14, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 6),
-                    Text(
-                      formattedTime,
-                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
-                    ),
-                  ],
+              const SizedBox(height: 6),
+              Text(
+                reminder['description'] ?? 'No description',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withOpacity(isPast ? 0.4 : 0.6),
                 ),
-                Row(
-                  children: [
-                    Icon(LucideIcons.copy, size: 16, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 12),
-                    Icon(LucideIcons.trash2, size: 16, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 12),
-                    Icon(LucideIcons.moreVertical, size: 16, color: Colors.white.withOpacity(0.5)),
-                  ],
-                ),
-              ],
-            ),
-          ],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.clock,
+                        size: 14,
+                        color: Colors.white.withOpacity(isPast ? 0.3 : 0.5),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        fullDateTime,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(isPast ? 0.3 : 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      );
+    } catch (e) {
+      debugPrint('Error parsing reminder: $e | Data: $reminder');
+      return _buildErrorCard('Failed to load reminder');
+    }
+  }
+
+  Widget _buildErrorCard(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: Colors.red, fontSize: 12),
       ),
     );
   }
 
-  // Section header
+  // Section header with title and "View all"
   Widget _buildSectionHeader(String title, IconData icon, VoidCallback onTap) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1015,4 +1158,6 @@ class _HomePageState extends State<HomePage> {
       child: Icon(icon, size: 14, color: Colors.white.withOpacity(0.7)),
     );
   }
+
+
 }

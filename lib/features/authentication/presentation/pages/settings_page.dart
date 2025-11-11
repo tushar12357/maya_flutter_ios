@@ -42,16 +42,23 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Map<String, dynamic>> _bleWifiNetworks = [];
 
   // Custom UUIDs
-  static const String PROV_SERVICE_UUID = "be5bc66e-94a7-4337-87d6-a623ce14e709";
+  static const String PROV_SERVICE_UUID =
+      "be5bc66e-94a7-4337-87d6-a623ce14e709";
   static const String SSID_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1";
   static const String PASS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2";
   static const String STATUS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef3";
 
   // Dependencies
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
-  final Debouncer _volumeDebouncer = Debouncer(delay: const Duration(milliseconds: 500));
-  final Debouncer _micVolumeDebouncer = Debouncer(delay: const Duration(milliseconds: 500));
-  final Debouncer _notiDebouncer = Debouncer(delay: const Duration(milliseconds: 600));
+  final Debouncer _volumeDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 500),
+  );
+  final Debouncer _micVolumeDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 500),
+  );
+  final Debouncer _notiDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 600),
+  );
 
   // ──────────────────────────────────────────────────────────────
   // Lifecycle
@@ -144,7 +151,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
       final services = await d.discoverServices();
       for (final s in services) {
-        if (s.uuid.toString().toLowerCase() == PROV_SERVICE_UUID.toLowerCase()) {
+        if (s.uuid.toString().toLowerCase() ==
+            PROV_SERVICE_UUID.toLowerCase()) {
           for (final c in s.characteristics) {
             final cu = c.uuid.toString().toLowerCase();
             if (cu == SSID_CHAR_UUID.toLowerCase()) _ssidChar = c;
@@ -165,11 +173,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
             if (jsonMsg['result'] == 'SCAN') {
               final nets = (jsonMsg['networks'] as List)
-                  .map((e) => {
-                        'name': e['ssid'],
-                        'signal': _getSignalStrength(e['rssi'] ?? -100),
-                        'connected': false,
-                      })
+                  .map(
+                    (e) => {
+                      'name': e['ssid'],
+                      'signal': _getSignalStrength(e['rssi'] ?? -100),
+                      'connected': false,
+                    },
+                  )
                   .toList();
               setState(() {
                 _bleWifiNetworks = nets;
@@ -260,7 +270,10 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1F2937),
-        title: Text('Connect to $ssid', style: const TextStyle(color: Colors.white)),
+        title: Text(
+          'Connect to $ssid',
+          style: const TextStyle(color: Colors.white),
+        ),
         content: TextField(
           obscureText: true,
           style: const TextStyle(color: Colors.white),
@@ -317,7 +330,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _fetchNotificationPreferences() async {
     try {
       final resp = await _apiClient.getCurrentUser();
-      final data = resp['data']['notification_preference'] as Map<String, dynamic>;
+      final data =
+          resp['data']['notification_preference'] as Map<String, dynamic>;
       setState(() {
         _emailNotifications = data['email_notifications'] ?? true;
         _pushNotifications = data['push_notifications'] ?? true;
@@ -328,13 +342,42 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (_) {}
   }
 
-  Future<void> _setVolume(double v) async => _debouncedApi(() => _apiClient.setVolume(v.round()), 'Volume');
-  Future<void> _setMicVolume(double v) async => _debouncedApi(() => _apiClient.setMicVolume(v.round()), 'Mic volume');
-  Future<void> _setWakeWord(bool v) async => _debouncedApi(() => _apiClient.setWakeWord(v ? 'on' : 'off'), v ? 'Wake enabled' : 'Wake disabled');
+  Future<void> _setVolume(double v) async =>
+      _debouncedApi(() => _apiClient.setVolume(v.round()), 'Volume');
+  Future<void> _setMicVolume(double v) async =>
+      _debouncedApi(() => _apiClient.setMicVolume(v.round()), 'Mic volume');
+  Future<void> _setWakeWord(bool v) async {
+    final successMsg = v ? 'Wake enabled' : 'Wake disabled';
 
-  Future<void> _wakeMaya() async => _apiCall(() => _apiClient.wakeMaya(), 'Maya activated', 'Failed to wake Maya');
-  Future<void> _rebootDevice() async => _apiCall(() => _apiClient.rebootDevice(), 'Restarting...', 'Failed to restart');
-  Future<void> _shutdownDevice() async => _apiCall(() => _apiClient.shutdownDevice(), 'Shutting down...', 'Failed to shutdown');
+    await _debouncedApi(
+      () => _apiClient.setWakeWord(v ? 'on' : 'off'),
+      successMsg,
+      // Add callback to update local state
+      onSuccess: () {
+        setState(() => _wakeWordEnabled = v);
+      },
+      // Optional: revert on failure
+      onFailure: () {
+        setState(() => _wakeWordEnabled = !v); // revert
+      },
+    );
+  }
+
+  Future<void> _wakeMaya() async => _apiCall(
+    () => _apiClient.wakeMaya(),
+    'Maya activated',
+    'Failed to wake Maya',
+  );
+  Future<void> _rebootDevice() async => _apiCall(
+    () => _apiClient.rebootDevice(),
+    'Restarting...',
+    'Failed to restart',
+  );
+  Future<void> _shutdownDevice() async => _apiCall(
+    () => _apiClient.shutdownDevice(),
+    'Shutting down...',
+    'Failed to shutdown',
+  );
 
   Future<void> _updateNotificationPrefs() async {
     setState(() => _isLoading = true);
@@ -354,20 +397,35 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _debouncedApi(Future<Map<String, dynamic>> Function() call, String successMsg) async {
+  Future<void> _debouncedApi(
+    Future<Map<String, dynamic>> Function() call,
+    String successMsg, {
+    VoidCallback? onSuccess,
+    VoidCallback? onFailure,
+  }) async {
     setState(() => _isLoading = true);
     try {
       final r = await call();
-      if (r['statusCode'] == 200) _showSnackBar(successMsg);
-      else _showSnackBar('Failed');
+      if (r['statusCode'] == 200) {
+        _showSnackBar(successMsg);
+        onSuccess?.call();
+      } else {
+        _showSnackBar('Failed');
+        onFailure?.call();
+      }
     } catch (e) {
-      // _showSnackBar('Error: $e');
+      _showSnackBar('Error: $e');
+      onFailure?.call();
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _apiCall(Future<Map<String, dynamic>> Function() call, String ok, String err) async {
+  Future<void> _apiCall(
+    Future<Map<String, dynamic>> Function() call,
+    String ok,
+    String err,
+  ) async {
     setState(() => _isLoading = true);
     try {
       final r = await call();
@@ -410,7 +468,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 8),
-                  const Text('Doll Setup', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Text(
+                    'Doll Setup',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   _buildPowerSection(),
                   const SizedBox(height: 16),
@@ -427,8 +492,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildBluetoothSection(),
                   const SizedBox(height: 16),
                   _buildNotificationSection(),
-                  const SizedBox(height: 16),
-                  _buildAdditionalSettingsSection(),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -440,7 +503,9 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               color: Colors.black.withOpacity(0.4),
               child: const Center(
-                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A57E8))),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A57E8)),
+                ),
               ),
             ),
         ],
@@ -452,117 +517,226 @@ class _SettingsPageState extends State<SettingsPage> {
   // UI Sections
   // ──────────────────────────────────────────────────────────────
   Widget _buildPowerSection() => _buildSection(
-        title: 'Power',
-        child: Row(children: [
-          Expanded(child: _buildActionButton(icon: Icons.power_settings_new, label: 'Power Off', color: const Color(0xFFEF4444), onTap: () => setState(() => _showShutdownModal = true))),
-          const SizedBox(width: 12),
-          Expanded(child: _buildActionButton(icon: Icons.restart_alt, label: 'Restart', color: const Color(0xFF6B7280), onTap: () => setState(() => _showRestartModal = true))),
-        ]),
-      );
+    title: 'Power',
+    child: Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.power_settings_new,
+            label: 'Power Off',
+            color: const Color(0xFFEF4444),
+            onTap: () => setState(() => _showShutdownModal = true),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.restart_alt,
+            label: 'Restart',
+            color: const Color(0xFF6B7280),
+            onTap: () => setState(() => _showRestartModal = true),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildConnectivitySection() => _buildSection(
-        title: 'Connectivity',
-        child: Row(children: [
-          Expanded(child: _buildStatusCard(icon: Icons.wifi, label: 'Wi-Fi', status: _wifiConnected ? 'On' : 'Off', iconColor: _wifiConnected ? const Color(0xFF10B981) : const Color(0xFF6B7280))),
-          const SizedBox(width: 12),
-          Expanded(child: _buildStatusCard(icon: Icons.bluetooth, label: 'Bluetooth', status: _bluetoothEnabled ? 'On' : 'Off', iconColor: _bluetoothEnabled ? const Color(0xFF3B82F6) : const Color(0xFF6B7280))),
-        ]),
-      );
+    title: 'Connectivity',
+    child: Row(
+      children: [
+        Expanded(
+          child: _buildStatusCard(
+            icon: Icons.wifi,
+            label: 'Wi-Fi',
+            status: _wifiConnected ? 'On' : 'Off',
+            iconColor: _wifiConnected
+                ? const Color(0xFF10B981)
+                : const Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatusCard(
+            icon: Icons.bluetooth,
+            label: 'Bluetooth',
+            status: _bluetoothEnabled ? 'On' : 'Off',
+            iconColor: _bluetoothEnabled
+                ? const Color(0xFF3B82F6)
+                : const Color(0xFF6B7280),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildDeviceStatusSection() => _buildSection(
-        title: 'Device Status',
-        child: Column(children: [
-          Row(children: [
-            Expanded(child: _buildInfoCard(icon: Icons.battery_charging_full, label: 'Battery', value: '87%', iconColor: const Color(0xFF10B981))),
+    title: 'Device Status',
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoCard(
+                icon: Icons.battery_charging_full,
+                label: 'Battery',
+                value: '87%',
+                iconColor: const Color(0xFF10B981),
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: _buildInfoCard(icon: Icons.thermostat, label: 'Temperature', value: '32°C', iconColor: const Color(0xFFF59E0B))),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _buildInfoCard(icon: Icons.schedule, label: 'Uptime', value: '18h', iconColor: const Color(0xFF3B82F6))),
+            Expanded(
+              child: _buildInfoCard(
+                icon: Icons.thermostat,
+                label: 'Temperature',
+                value: '32°C',
+                iconColor: const Color(0xFFF59E0B),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoCard(
+                icon: Icons.schedule,
+                label: 'Uptime',
+                value: '18h',
+                iconColor: const Color(0xFF3B82F6),
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: _buildInfoCard(icon: Icons.system_update, label: 'Firmware', value: 'v2.4.1', iconColor: const Color(0xFF8B5CF6))),
-          ]),
-        ]),
-      );
+            Expanded(
+              child: _buildInfoCard(
+                icon: Icons.system_update,
+                label: 'Firmware',
+                value: 'v2.4.1',
+                iconColor: const Color(0xFF8B5CF6),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 
   Widget _buildAudioControlSection() => _buildSection(
-        title: 'Audio Control',
-        child: Column(children: [
-          _buildSliderControl(
-            label: 'Speaker Volume',
-            value: _volume,
-            onChanged: (v) {
-              setState(() => _volume = v);
-              _volumeDebouncer.run(() => _setVolume(v));
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildSliderControl(
-            label: 'Microphone Sensitivity',
-            value: _micVolume,
-            onChanged: (v) {
-              setState(() => _micVolume = v);
-              _micVolumeDebouncer.run(() => _setMicVolume(v));
-            },
-          ),
-        ]),
-      );
+    title: 'Audio Control',
+    child: Column(
+      children: [
+        _buildSliderControl(
+          label: 'Speaker Volume',
+          value: _volume,
+          onChanged: (v) {
+            setState(() => _volume = v);
+            _volumeDebouncer.run(() => _setVolume(v));
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildSliderControl(
+          label: 'Microphone Sensitivity',
+          value: _micVolume,
+          onChanged: (v) {
+            setState(() => _micVolume = v);
+            _micVolumeDebouncer.run(() => _setMicVolume(v));
+          },
+        ),
+      ],
+    ),
+  );
 
   Widget _buildWakeWordSection() => _buildSection(
-        title: 'Wake Word Setting',
-        child: Column(children: [
-          _buildSwitchRow(label: 'Activate Maya with "Hey Maya"', value: _wakeWordEnabled, onChanged: _setWakeWord),
-          if (!_wakeWordEnabled) ...[
-            const SizedBox(height: 12),
-            _buildActionButton(icon: Icons.mic, label: 'Wake Maya', color: const Color(0xFF2A57E8), onTap: _wakeMaya),
-          ],
-        ]),
-      );
+    title: 'Wake Word Setting',
+    child: Column(
+      children: [
+        _buildSwitchRow(
+          label: 'Activate Maya with "Hey Maya"',
+          value: _wakeWordEnabled,
+          onChanged: (v) {
+            setState(() => _wakeWordEnabled = v); // Optimistic update
+            _setWakeWord(v);
+          },
+        ),
+        if (!_wakeWordEnabled) ...[
+          const SizedBox(height: 12),
+          _buildActionButton(
+            icon: Icons.mic,
+            label: 'Wake Maya',
+            color: const Color(0xFF2A57E8),
+            onTap: _wakeMaya,
+          ),
+        ],
+      ],
+    ),
+  );
 
   Widget _buildBluetoothSection() => _buildSection(
-        title: 'Bluetooth',
-        child: Column(children: [
-          _buildSwitchRow(
-            label: 'Bluetooth',
-            value: _bluetoothEnabled,
-            onChanged: (v) async {
-              setState(() => _bluetoothEnabled = v);
-              if (v) {
-                _startBleScan();
-              } else {
-                _disconnectBle();
-              }
-            },
-          ),
-          if (_bluetoothEnabled)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF374151))),
-              child: Center(child: Text(_bleStatus, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14))),
+    title: 'Bluetooth',
+    child: Column(
+      children: [
+        _buildSwitchRow(
+          label: 'Bluetooth',
+          value: _bluetoothEnabled,
+          onChanged: (v) async {
+            setState(() => _bluetoothEnabled = v);
+            if (v) {
+              _startBleScan();
+            } else {
+              _disconnectBle();
+            }
+          },
+        ),
+        if (_bluetoothEnabled)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F2937),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF374151)),
             ),
-        ]),
-      );
+            child: Center(
+              child: Text(
+                _bleStatus,
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 
   Widget _buildWifiSection() => _buildSection(
-        title: 'WiFi Configuration',
-        child: Column(children: [
-          _buildSwitchRow(label: 'WiFi', value: _wifiConnected, onChanged: (v) => setState(() => _wifiConnected = v)),
-          if (_wifiConnected) ...[
-            const SizedBox(height: 12),
-            if (_bleWifiNetworks.isEmpty)
-              Text(_bleStatus, style: const TextStyle(color: Color(0xFF9CA3AF)))
-            else
-              ..._bleWifiNetworks.map((net) => GestureDetector(
-                    onTap: () => _showWifiPasswordDialog(net['name']),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _buildWifiCard(name: net['name'], signal: net['signal'], connected: net['connected']),
-                    ),
-                  )),
-          ],
-        ]),
-      );
+    title: 'WiFi Configuration',
+    child: Column(
+      children: [
+        _buildSwitchRow(
+          label: 'WiFi',
+          value: _wifiConnected,
+          onChanged: (v) => setState(() => _wifiConnected = v),
+        ),
+        if (_wifiConnected) ...[
+          const SizedBox(height: 12),
+          if (_bleWifiNetworks.isEmpty)
+            Text(_bleStatus, style: const TextStyle(color: Color(0xFF9CA3AF)))
+          else
+            ..._bleWifiNetworks.map(
+              (net) => GestureDetector(
+                onTap: () => _showWifiPasswordDialog(net['name']),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildWifiCard(
+                    name: net['name'],
+                    signal: net['signal'],
+                    connected: net['connected'],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ],
+    ),
+  );
 
   Widget _buildNotificationSection() {
     return _buildSection(
@@ -619,123 +793,362 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildAdditionalSettingsSection() => _buildSection(
-        title: 'Additional Setting',
-        child: Column(children: [
-          _buildSettingRow(icon: Icons.tune, label: 'Voice Settings', onTap: () {}),
-          const SizedBox(height: 8),
-          _buildSettingRow(icon: Icons.security, label: 'Privacy & Security', onTap: () {}),
-          const SizedBox(height: 8),
-          _buildSettingRow(icon: Icons.cloud_download, label: 'Software Update', onTap: () {}),
-        ]),
-      );
+    title: 'Additional Setting',
+    child: Column(
+      children: [
+        _buildSettingRow(
+          icon: Icons.tune,
+          label: 'Voice Settings',
+          onTap: () {},
+        ),
+        const SizedBox(height: 8),
+        _buildSettingRow(
+          icon: Icons.security,
+          label: 'Privacy & Security',
+          onTap: () {},
+        ),
+        const SizedBox(height: 8),
+        _buildSettingRow(
+          icon: Icons.cloud_download,
+          label: 'Software Update',
+          onTap: () {},
+        ),
+      ],
+    ),
+  );
 
   // ──────────────────────────────────────────────────────────────
   // Reusable UI Widgets
   // ──────────────────────────────────────────────────────────────
-  Widget _buildSection({required String title, required Widget child}) => Container(
+  Widget _buildSection({required String title, required Widget child}) =>
+      Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1F2937).withOpacity(0.6), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF374151))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)), const SizedBox(height: 12), child]),
-      );
-
-  Widget _buildActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF374151))),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 20), const SizedBox(width: 8), Text(label, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500))]),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F2937).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF374151)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
         ),
       );
 
-  Widget _buildStatusCard({required IconData icon, required String label, required String status, required Color iconColor}) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF374151))),
-        child: Row(children: [
-          Icon(icon, color: iconColor, size: 24),
-          const SizedBox(width: 8),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)), Text(status, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12))])),
-        ]),
-      );
-
-  Widget _buildInfoCard({required IconData icon, required String label, required String value, required Color iconColor}) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF374151))),
-        child: Row(children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)), Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))])),
-        ]),
-      );
-
-  Widget _buildSliderControl({required String label, required double value, required ValueChanged<double> onChanged}) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF374151)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)), Text('${value.round()}%', style: const TextStyle(color: Color(0xFF2A57E8), fontSize: 14, fontWeight: FontWeight.w600))]),
-          SliderTheme(
-            data: SliderThemeData(activeTrackColor: const Color(0xFF2A57E8), inactiveTrackColor: const Color(0xFF374151), thumbColor: const Color(0xFF2A57E8), overlayColor: const Color(0xFF2A57E8).withOpacity(0.2), trackHeight: 4),
-            child: Slider(value: value, min: 0, max: 100, onChanged: onChanged),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
-      );
+      ),
+    ),
+  );
 
-  Widget _buildSwitchRow({required String label, required bool value, required ValueChanged<bool> onChanged}) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)), Switch(value: value, onChanged: onChanged, activeColor: const Color(0xFF2A57E8), inactiveThumbColor: const Color(0xFF6B7280), inactiveTrackColor: const Color(0xFF374151))],
-      );
-
-  Widget _buildWifiCard({required String name, required String signal, required bool connected}) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: connected ? const Color(0xFF2A57E8) : const Color(0xFF374151))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            Icon(Icons.wifi, color: connected ? const Color(0xFF2A57E8) : const Color(0xFF6B7280), size: 20),
-            const SizedBox(width: 12),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)), Text(signal, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12))]),
-          ]),
-          if (connected)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFF2A57E8).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
-              child: const Text('Connected', style: TextStyle(color: Color(0xFF2A57E8), fontSize: 12, fontWeight: FontWeight.w500)),
-            ),
-        ]),
-      );
-
-  Widget _buildSettingRow({required IconData icon, required String label, required VoidCallback onTap}) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF374151))),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Row(children: [Icon(icon, color: const Color(0xFF9CA3AF), size: 20), const SizedBox(width: 12), Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500))]),
-            const Icon(Icons.chevron_right, color: Color(0xFF6B7280), size: 20),
-          ]),
+  Widget _buildStatusCard({
+    required IconData icon,
+    required String label,
+    required String status,
+    required Color iconColor,
+  }) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1F2937),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFF374151)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: iconColor, size: 24),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                status,
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+              ),
+            ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
+
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color iconColor,
+  }) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1F2937),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFF374151)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: iconColor, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildSliderControl({
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            '${value.round()}%',
+            style: const TextStyle(
+              color: Color(0xFF2A57E8),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      SliderTheme(
+        data: SliderThemeData(
+          activeTrackColor: const Color(0xFF2A57E8),
+          inactiveTrackColor: const Color(0xFF374151),
+          thumbColor: const Color(0xFF2A57E8),
+          overlayColor: const Color(0xFF2A57E8).withOpacity(0.2),
+          trackHeight: 4,
+        ),
+        child: Slider(value: value, min: 0, max: 100, onChanged: onChanged),
+      ),
+    ],
+  );
+
+  Widget _buildSwitchRow({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: const Color(0xFF2A57E8),
+        inactiveThumbColor: const Color(0xFF6B7280),
+        inactiveTrackColor: const Color(0xFF374151),
+      ),
+    ],
+  );
+
+  Widget _buildWifiCard({
+    required String name,
+    required String signal,
+    required bool connected,
+  }) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1F2937),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: connected ? const Color(0xFF2A57E8) : const Color(0xFF374151),
+      ),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.wifi,
+              color: connected
+                  ? const Color(0xFF2A57E8)
+                  : const Color(0xFF6B7280),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  signal,
+                  style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (connected)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A57E8).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'Connected',
+              style: TextStyle(
+                color: Color(0xFF2A57E8),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  Widget _buildSettingRow({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF374151)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const Icon(Icons.chevron_right, color: Color(0xFF6B7280), size: 20),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildShutdownModal() => _modal(
-        title: 'Shutdown Maya Doll?',
-        body: "The doll will power off completely. You'll need to manually turn it back on.",
-        cancel: () => setState(() => _showShutdownModal = false),
-        action: () {
-          setState(() => _showShutdownModal = false);
-          _shutdownDevice();
-        },
-        actionLabel: 'Shutdown',
-        actionColor: const Color(0xFFEF4444),
-      );
+    title: 'Shutdown Maya Doll?',
+    body:
+        "The doll will power off completely. You'll need to manually turn it back on.",
+    cancel: () => setState(() => _showShutdownModal = false),
+    action: () {
+      setState(() => _showShutdownModal = false);
+      _shutdownDevice();
+    },
+    actionLabel: 'Shutdown',
+    actionColor: const Color(0xFFEF4444),
+  );
 
   Widget _buildRestartModal() => _modal(
-        title: 'Restart Maya Doll?',
-        body: 'The doll will restart and be back online in about 30 seconds.',
-        cancel: () => setState(() => _showRestartModal = false),
-        action: () {
-          setState(() => _showRestartModal = false);
-          _rebootDevice();
-        },
-        actionLabel: 'Restart',
-        actionColor: const Color(0xFF2A57E8),
-      );
+    title: 'Restart Maya Doll?',
+    body: 'The doll will restart and be back online in about 30 seconds.',
+    cancel: () => setState(() => _showRestartModal = false),
+    action: () {
+      setState(() => _showRestartModal = false);
+      _rebootDevice();
+    },
+    actionLabel: 'Restart',
+    actionColor: const Color(0xFF2A57E8),
+  );
 
   Widget _modal({
     required String title,
@@ -744,40 +1157,81 @@ class _SettingsPageState extends State<SettingsPage> {
     required VoidCallback action,
     required String actionLabel,
     required Color actionColor,
-  }) =>
-      Container(
-        color: Colors.black.withOpacity(0.7),
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: const Color(0xFF1F2937), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF374151))),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-              const SizedBox(height: 12),
-              Text(body, style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)), textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              Row(children: [
-                Expanded(child: TextButton(onPressed: cancel, child: _modalButton('Cancel', const Color(0xFF374151)))),
-                const SizedBox(width: 12),
-                Expanded(child: TextButton(onPressed: action, child: _modalButton(actionLabel, actionColor))),
-              ]),
-            ]),
-          ),
+  }) => Container(
+    color: Colors.black.withOpacity(0.7),
+    child: Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F2937),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF374151)),
         ),
-      );
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              body,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: cancel,
+                    child: _modalButton('Cancel', const Color(0xFF374151)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextButton(
+                    onPressed: action,
+                    child: _modalButton(actionLabel, actionColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _modalButton(String text, Color bg) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-        child: Center(child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white))),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Center(
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    ),
+  );
 }
 
 // Helper extension
 extension on VoidCallback {
   VoidCallback also(VoidCallback other) => () {
-        this();
-        other();
-      };
+    this();
+    other();
+  };
 }

@@ -421,16 +421,7 @@ class _TasksPageState extends State<TasksPage> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-
-            // Subtitle
-            Text(
-              'UX and Research Discussion',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
-              ),
-            ),
+            
             const SizedBox(height: 12),
 
             // Footer with timestamp and priority badge

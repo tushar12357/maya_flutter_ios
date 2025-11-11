@@ -357,24 +357,7 @@ class _TodosPageState extends State<TodosPage> {
                                                   ),
                                                   const Spacer(),
                                                   // Icons
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      // Folder action
-                                                    },
-                                                    icon: const Icon(Icons.folder_outlined, color: Color.fromRGBO(189, 189, 189, 1)),
-                                                  ),
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      // Delete action
-                                                    },
-                                                    icon: const Icon(Icons.delete_outline, color: Color.fromRGBO(189, 189, 189, 1)),
-                                                  ),
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      // More actions
-                                                    },
-                                                    icon: const Icon(Icons.more_vert, color: Color.fromRGBO(189, 189, 189, 1)),
-                                                  ),
+                                                  
                                                 ],
                                               ),
                                             ],
