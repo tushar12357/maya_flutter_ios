@@ -772,6 +772,24 @@ Future<Map<String,dynamic>> updateGenerationStatus(String generationId, String a
   return {'statusCode': response.statusCode, 'data': response.data};
 }
 
+Future<Map<String, dynamic>> saveFirefliesKey({
+  required int userId,
+  required String apiKey,
+}) async {
+  final response = await _protectedDio.post(
+    '/auth/fireflies/save-key',
+    data: {
+      'fireflies_api_key': apiKey,
+    },
+  );
+
+  return {
+    'statusCode': response.statusCode,
+    'data': response.data,
+  };
+}
+
+
 }
 
 
