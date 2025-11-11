@@ -507,41 +507,43 @@ class _HomePageState extends State<HomePage> {
   // UI
   // -----------------------------------------------------------------------
   @override
- Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final displayName = _userFirstName?.isNotEmpty == true
-            ? _userFirstName!
-            : (state is AuthAuthenticated
-                  ? state.user.firstName ?? 'User'
-                  : 'User');
+@override
+Widget build(BuildContext context) {
+  return BlocBuilder<AuthBloc, AuthState>(
+    builder: (context, state) {
+      final displayName = _userFirstName?.isNotEmpty == true
+          ? _userFirstName!
+          : (state is AuthAuthenticated
+                ? state.user.firstName ?? 'User'
+                : 'User');
 
-        return Scaffold(
-          body: Stack(
-            children: [
-              // Background
-              Container(color: const Color(0xFF111827)),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x992A57E8), Colors.transparent],
-                  ),
+      return Scaffold(
+        body: Stack(
+          children: [
+            // Background
+            Container(color: const Color(0xFF111827)),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x992A57E8), Colors.transparent],
                 ),
               ),
+            ),
 
-              // Content
-              SafeArea(
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 40),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header: Greeting + Blue Card
+                    // HEADER
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Profile image
                           Container(
                             width: 48,
                             height: 48,
@@ -558,19 +560,16 @@ class _HomePageState extends State<HomePage> {
                               child: Image.asset(
                                 'assets/maya_logo.png',
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(
-                                    LucideIcons.user,
-                                    color: Colors.white,
-                                    size: 24,
-                                  );
-                                },
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  LucideIcons.user,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
 
-                          // Greeting
                           Text(
                             'Hello, $displayName!',
                             style: const TextStyle(
@@ -580,9 +579,9 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          const Text(
                             'Let\'s explore the way in which I can\nassist you.',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: Colors.white,
@@ -591,7 +590,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Blue gradient card (kept as per design)
+                          // Blue card
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(20),
@@ -604,9 +603,7 @@ class _HomePageState extends State<HomePage> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFF2563EB,
-                                  ).withOpacity(0.3),
+                                  color: const Color(0xFF2563EB).withOpacity(0.3),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -626,9 +623,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 const SizedBox(height: 16),
                                 GestureDetector(
-                                  onTap: () {
-                                    context.push('/maya');
-                                  },
+                                  onTap: () => context.push('/maya'),
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 150),
                                     padding: const EdgeInsets.symmetric(
@@ -658,12 +653,12 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 24),
 
-                    // Scrollable Sections
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                    // All content scrolls now
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
                         children: [
-                          // === Active Tasks Section ===
+                          // Active Tasks
                           _buildSectionHeader(
                             'Active Tasks',
                             LucideIcons.zap,
@@ -675,11 +670,10 @@ class _HomePageState extends State<HomePage> {
                           else if (tasks.isEmpty)
                             _buildEmptyState('No active tasks')
                           else
-                            ...tasks
-                                .take(3)
-                                .map((task) => _buildTaskCard(task)),
+                            ...tasks.take(3).map(_buildTaskCard),
                           const SizedBox(height: 24),
 
+                          // Reminders
                           _buildSectionHeader(
                             'Reminders',
                             LucideIcons.calendar,
@@ -691,11 +685,10 @@ class _HomePageState extends State<HomePage> {
                           else if (reminders.isEmpty)
                             _buildEmptyState('No reminders')
                           else
-                            ...reminders.map(
-                              (reminder) => _buildReminderCard(reminder),
-                            ),
+                            ...reminders.map(_buildReminderCard),
                           const SizedBox(height: 24),
-                          // === To-Do Section ===
+
+                          // To-dos
                           _buildSectionHeader(
                             'To-Do',
                             LucideIcons.clipboardList,
@@ -707,9 +700,8 @@ class _HomePageState extends State<HomePage> {
                           else if (todos.isEmpty)
                             _buildEmptyState('No to-dos')
                           else
-                            ...todos
-                                .take(3)
-                                .map((todo) => _buildToDoCard(todo)),
+                            ...todos.take(3).map(_buildToDoCard),
+
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -717,12 +709,13 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildEmptyState(String message) {
     return Container(
