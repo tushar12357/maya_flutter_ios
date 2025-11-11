@@ -789,6 +789,26 @@ Future<Map<String, dynamic>> saveFirefliesKey({
   };
 }
 
+Future<Map<String, dynamic>> changePassword({
+  required String oldPassword,
+  required String newPassword,
+  required String confirmPassword,
+}) async {
+  final response = await _protectedDio.post(
+    '/auth/change-password',
+    data: {
+      'old_password': oldPassword,
+      'new_password': newPassword,
+      'confirm_password': confirmPassword,
+    },
+  );
+
+  return {
+    'statusCode': response.statusCode,
+    'data': response.data,
+  };
+}
+
 
 }
 

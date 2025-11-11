@@ -21,6 +21,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Map<String, dynamic>? userData;
 
+
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
@@ -148,7 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => context.go('/change-password'),
+onPressed: _showChangePasswordDialog,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white),
@@ -167,26 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 12),
 
                 // Delete Account Button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => _showDeleteDialog(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Delete Account',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
+                               const SizedBox(height: 24),
               ],
             ),
           ),
@@ -485,4 +468,157 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+void _showChangePasswordDialog() {
+  final oldPassController = TextEditingController();
+  final newPassController = TextEditingController();
+  final confirmPassController = TextEditingController();
+
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+
+      Future<void> submit() async {
+        if (oldPassController.text.isEmpty ||
+            newPassController.text.isEmpty ||
+            confirmPassController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please fill all fields")),
+          );
+          return;
+        }
+
+        if (newPassController.text != confirmPassController.text) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Passwords do not match")),
+          );
+          return;
+        }
+
+        Navigator.of(dialogContext).pop(); // close UI first
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Changing password...")),
+        );
+
+        final res = await getIt<ApiClient>().changePassword(
+          oldPassword: oldPassController.text,
+          newPassword: newPassController.text,
+          confirmPassword: confirmPassController.text,
+        );
+
+        if (res['statusCode'] == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Password changed successfully!")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['data']?['message'] ?? "Password change failed"),
+            ),
+          );
+        }
+      }
+
+      return AlertDialog(
+        backgroundColor: const Color(0xFF111827).withOpacity(0.94),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: Color(0x1AFFFFFF)),
+        ),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Change Password",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            _passwordField("Old Password", oldPassController),
+            const SizedBox(height: 12),
+            _passwordField("New Password", newPassController),
+            const SizedBox(height: 12),
+            _passwordField("Confirm Password", confirmPassController),
+
+            const SizedBox(height: 24),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1AFFFFFF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: submit,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A57E8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      "Update",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _passwordField(String label, TextEditingController controller) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+      const SizedBox(height: 6),
+      TextField(
+        controller: controller,
+        obscureText: true,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white10,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      ),
+    ],
+  );
+}
+
 }
