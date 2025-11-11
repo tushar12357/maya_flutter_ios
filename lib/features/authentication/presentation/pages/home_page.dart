@@ -132,6 +132,7 @@ class _HomePageState extends State<HomePage> {
       final userData = userResp['data'] as Map<String, dynamic>;
       final String firstName = userData['first_name']?.toString() ?? '';
       final String lastName = userData['last_name']?.toString() ?? '';
+      final String phoneNumber = userData['phone_number']?.toString() ?? '';
       setState(() {
         _userFirstName = firstName;
         _userLastName = lastName;
@@ -145,15 +146,13 @@ class _HomePageState extends State<HomePage> {
       final (Position position, String timezone) =
           results[1] as (Position, String);
 
-      if (token == null) {
-        _showSnack('FCM token missing – aborting profile sync');
-        return;
-      }
+      
 
       final updateResp = await _apiClient.updateUserProfile(
         firstName: firstName,
+        phoneNumber: phoneNumber,
         lastName: lastName,
-        fcmToken: token,
+        fcmToken: token ?? '',
         latitude: position.latitude,
         longitude: position.longitude,
         timezone: timezone,

@@ -712,6 +712,7 @@ Future<Map<String, dynamic>> getCurrentUser() async {
   required double latitude,
   required double longitude,
   required String timezone,
+  required String phoneNumber,
 }) async {
   final payload = prepareUpdateUserProfilePayload(
     firstName: firstName,
@@ -720,6 +721,7 @@ Future<Map<String, dynamic>> getCurrentUser() async {
     latitude: latitude,
     longitude: longitude,
     timezone: timezone,
+    phoneNumber: phoneNumber,
   );
 
   final response = await _protectedDio.patch('/auth/users/update', data: payload);
@@ -746,6 +748,7 @@ Map<String, dynamic> prepareUpdateUserProfilePayload({
   required double latitude,
   required double longitude,
   required String timezone,
+  required String phoneNumber,
 }) {
   return {
     "first_name": firstName,
@@ -754,6 +757,7 @@ Map<String, dynamic> prepareUpdateUserProfilePayload({
     "latitude": latitude,
     "longitude": longitude,
     "timezone": timezone,
+    "phone_number": phoneNumber,
   };
 }
 

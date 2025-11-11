@@ -17,36 +17,41 @@ class ContactsPermissionService {
   /// Request permission + fetch contacts
   /// Returns `null` if denied, otherwise List<Map<String, String>>
   static Future<List<Map<String, String>>?> requestAndFetch(BuildContext context) async {
-    // 1. Fast path: already granted
-    if (await isGranted()) {
-      return await _fetchContacts();
-    }
-
-    // 2. Request → shows iOS native dialog: "Allow" / "Don't Allow"
-    final status = await Permission.contacts.request();
-
-    // 3. Handle result
-    if (status.isGranted) {
-      return await _fetchContacts();
-    } else if (status.isPermanentlyDenied) {
-      if (context.mounted) {
-        _showSnack(
-          context,
-          'Please enable Contacts in Settings → Maya → Contacts',
-          showAction: true,
-        );
-      }
-      return null;
-    } else {
-      if (context.mounted) {
-        _showSnack(
-          context,
-          'Contacts access needed to sync. Tap again to allow.',
-        );
-      }
-      return null;
-    }
+  // 1. Already has permission
+  final current = await Permission.contacts.status;
+  if (current.isGranted || current.isLimited) {
+    return await _fetchContacts();
   }
+
+  // 2. Ask for permission
+  final status = await Permission.contacts.request();
+
+  // 3. Handle all valid positive cases
+  if (status.isGranted || status.isLimited) {
+    return await _fetchContacts(); // might return partial contacts in limited mode
+  }
+
+  // 4. Permanently denied → show setting redirect
+  if (status.isPermanentlyDenied) {
+    if (context.mounted) {
+      _showSnack(
+        context,
+        'Contacts access is restricted. Open Settings → Maya → Contacts',
+        showAction: true,
+      );
+    }
+    return null;
+  }
+
+  // 5. Denied normally
+  if (context.mounted) {
+    _showSnack(
+      context,
+      'Contacts access required to sync. Tap again to allow.',
+    );
+  }
+  return null;
+}
 
   /// Internal: fetch contacts after permission
   static Future<List<Map<String, String>>?> _fetchContacts() async {

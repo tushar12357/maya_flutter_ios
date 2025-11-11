@@ -7,8 +7,19 @@ import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
+  final phoneController = TextEditingController();
+
+  Map<String, dynamic>? userData;
 
   @override
   Widget build(BuildContext context) {
@@ -16,51 +27,22 @@ class ProfilePage extends StatelessWidget {
       future: getIt<ApiClient>().getCurrentUser(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Stack(
-              children: [
-                // Background color
-                Container(color: const Color(0xFF111827)),
-                // Gradient overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0x992A57E8), Colors.transparent],
-                    ),
-                  ),
-                ),
-                // Loading
-                const SafeArea(
-                  child: Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          );
+          return _loadingView();
         }
 
-        Map<String, dynamic>? userData;
-        if (snapshot.hasError) {
-          print('Error fetching user in ProfilePage: ${snapshot.error}');
-        } else if (snapshot.hasData) {
-          final response = snapshot.data!;
-          if (response['statusCode'] == 200) {
-            userData = response['data']['data'] as Map<String, dynamic>?;
-            print('🔍 Profile Page: User data - ${userData?['first_name']}');
-          }
+        if (snapshot.hasData && snapshot.data?['statusCode'] == 200) {
+          userData = snapshot.data!['data']['data'];
+
+          firstNameController.text = userData?['first_name'] ?? '';
+          lastNameController.text = userData?['last_name'] ?? '';
+          phoneController.text = userData?['phone_number'] ?? '';
         }
 
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: Stack(
             children: [
-              // Background color
               Container(color: const Color(0xFF111827)),
-              // Gradient overlay
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -70,7 +52,6 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Main content
               SafeArea(
                 child: userData == null
                     ? const Center(
@@ -79,7 +60,7 @@ class ProfilePage extends StatelessWidget {
                           style: TextStyle(fontSize: 16, color: Colors.white),
                         ),
                       )
-                    : _buildMainContent(userData, context),
+                    : _buildMainContent(),
               ),
             ],
           ),
@@ -88,10 +69,10 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildMainContent(Map<String, dynamic> userData, BuildContext context) {
+  Widget _buildMainContent() {
     return Column(
       children: [
-        // Custom Header with Back Button
+        // Header
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -107,11 +88,7 @@ class ProfilePage extends StatelessWidget {
                       color: Colors.white.withOpacity(0.1),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
@@ -127,117 +104,28 @@ class ProfilePage extends StatelessWidget {
             ],
           ),
         ),
+
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
-                // Profile Picture Section
-                _buildProfileHeader(userData, context),
+
+                // Profile Header (Avatar + Name)
+                _buildProfileHeader(),
+
                 const SizedBox(height: 24),
-                // Personal Information Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2D4A6F).withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Personal information',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildInfoRow(
-                        'Full Name',
-                        '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}',
-                      ),
-                      _buildInfoRow(
-                        'Email',
-                        userData['email'] ?? '',
-                      ),
-                      _buildInfoRow(
-                        'Phone',
-                        userData['phone_number'] ?? '+91 9876543210',
-                      ),
-                      _buildInfoRow(
-                        'Location',
-                        'New Delhi, India',
-                      ),
-                      _buildInfoRow(
-                        'Bio',
-                        'UI/UX Designer passionate',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Account Information Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2D4A6F).withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Account information',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildInfoRow(
-                        'User ID',
-                        'USR-${userData['ID'] ?? 3047}',
-                      ),
-                      _buildInfoRow(
-                        'Username',
-                        '@kaarthi-design',
-                      ),
-                      _buildInfoRow(
-                        'Member Since',
-                        _formatDate(userData['CreatedAt']),
-                      ),
-                      _buildInfoRow(
-                        'Account Type',
-                        'Premium',
-                      ),
-                      _buildInfoRow('Status', 'Active'),
-                    ],
-                  ),
-                ),
+
+                // Editable Personal Information
+                _personalInformationCard(),
                 const SizedBox(height: 24),
-                // Save Changes Button
+
+                // Save Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Placeholder for save functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Changes saved!'),
-                        ),
-                      );
-                    },
+                    onPressed: _saveUpdatedProfile,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4B5563),
                       foregroundColor: Colors.white,
@@ -249,22 +137,18 @@ class ProfilePage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Save Changes',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 // Change Password Button
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () {
-                      // Placeholder for change password
-                      context.go('/change-password'); // Assuming route exists
-                    },
+                    onPressed: () => context.go('/change-password'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white),
@@ -275,14 +159,13 @@ class ProfilePage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Change Password',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 // Delete Account Button
                 SizedBox(
                   width: double.infinity,
@@ -298,13 +181,11 @@ class ProfilePage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Delete Account',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -314,20 +195,47 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader(Map<String, dynamic> userData, BuildContext context) {
-    final name = userData['first_name'] ?? 'Kaarthi';
-    final email = userData['email'] ?? 'kaarthi@gmail.com';
-    final avatarLetter = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'K';
+  Widget _personalInformationCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D4A6F).withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Personal information',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+
+          _editableField("First Name", firstNameController),
+          _editableField("Last Name", lastNameController),
+          _editableField("Phone Number", phoneController),
+
+          _buildInfoRow("Email", userData?['email'] ?? ''),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    final name = firstNameController.text.isNotEmpty ? firstNameController.text : 'User';
+    final email = userData?['email'] ?? '';
+    final avatarLetter = name.substring(0, 1).toUpperCase();
 
     return Row(
       children: [
-        // Avatar
+        // Gradient Avatar
         Container(
           width: 80,
           height: 80,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [Color(0xFF2A57E8), Color(0xFF1D4ED8)],
@@ -336,15 +244,12 @@ class ProfilePage extends StatelessWidget {
           child: Center(
             child: Text(
               avatarLetter,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
         ),
         const SizedBox(width: 16),
+
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,39 +257,79 @@ class ProfilePage extends StatelessWidget {
               Text(
                 name,
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                  fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 4),
               Text(
                 email,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color.fromRGBO(189, 189, 189, 1),
-                ),
+                style: const TextStyle(fontSize: 14, color: Color.fromRGBO(189, 189, 189, 1)),
               ),
             ],
           ),
         ),
+
         TextButton(
           onPressed: () {
-            // Placeholder for change picture
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Change picture functionality')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Change picture functionality')));
           },
-          child: const Text(
-            'Change Picture',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: const Text('Change Picture',
+              style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
         ),
       ],
+    );
+  }
+
+  Widget _editableField(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70)),
+
+          const SizedBox(height: 6),
+
+          TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white10,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _accountInformationCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D4A6F).withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Account information',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+
+          _buildInfoRow("User ID", 'USR-${userData?['ID']}'),
+          _buildInfoRow("Member Since", _formatDate(userData?['CreatedAt'])),
+          _buildInfoRow("Account Type", 'Premium'),
+          _buildInfoRow("Status", 'Active'),
+        ],
+      ),
     );
   }
 
@@ -392,17 +337,12 @@ class ProfilePage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
             ),
           ),
           Expanded(
@@ -417,15 +357,62 @@ class ProfilePage extends StatelessWidget {
   }
 
   String _formatDate(String? createdAt) {
-    if (createdAt == null) {
-      return 'Oct 29, 11:45 AM IST';
-    }
+    if (createdAt == null) return "N/A";
     try {
       final dateTime = DateTime.parse(createdAt);
       return DateFormat('MMM dd, h:mm a').format(dateTime) + ' IST';
-    } catch (e) {
-      return 'Oct 29, 11:45 AM IST';
+    } catch (_) {
+      return "N/A";
     }
+  }
+
+  Future<void> _saveUpdatedProfile() async {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Updating profile...")));
+
+    final result = await getIt<ApiClient>().updateUserProfile(
+      firstName: firstNameController.text,
+      lastName: lastNameController.text,
+      fcmToken: userData?['fcm_token'] ?? '',
+      latitude: userData?['latitude'] ?? 0.0,
+      longitude: userData?['longitude'] ?? 0.0,
+      timezone: userData?['timezone'] ?? 'Asia/Kolkata',
+      phoneNumber: phoneController.text,
+    );
+
+    if (result['statusCode'] == 200) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Profile updated!")));
+      setState(() {});
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Update failed")));
+    }
+  }
+
+  Widget _loadingView() {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Container(color: const Color(0xFF111827)),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x992A57E8), Colors.transparent],
+              ),
+            ),
+          ),
+          const SafeArea(
+            child: Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDeleteDialog(BuildContext context) {
@@ -435,35 +422,22 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: const Color(0xFF111827),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(
-            color: Color(0x1AFFFFFF),
-          ), // white.withOpacity(0.1)
+          side: const BorderSide(color: Color(0x1AFFFFFF)),
         ),
         contentPadding: const EdgeInsets.all(16),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.delete_outline,
-              color: Color(0xFFEF4444),
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            const Text(
+          children: const [
+            Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 48),
+            SizedBox(height: 16),
+            Text(
               'Delete Account',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            const SizedBox(height: 12),
-            const Text(
+            SizedBox(height: 12),
+            Text(
               'Are you sure you want to delete your account?\n\nThis action cannot be undone.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color.fromRGBO(189, 189, 189, 1),
-              ),
+              style: TextStyle(fontSize: 14, color: Color.fromRGBO(189, 189, 189, 1)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -474,32 +448,27 @@ class ProfilePage extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0x1AFFFFFF), // white.withOpacity(0.1)
+                color: const Color(0x1AFFFFFF),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+                    fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
               ),
             ),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              // Placeholder for delete functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Account deleted!')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Account deleted!')));
               context.read<AuthBloc>().add(LogoutRequested());
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0x1AFF4444), // EF4444.withOpacity(0.1)
+                color: const Color(0x1AFF4444),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(

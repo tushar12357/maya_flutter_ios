@@ -92,7 +92,7 @@ late int _currentUserId;
         clientId:
             '452755436213-kls0a46r5v4sido47mlvccr17s4uu90q.apps.googleusercontent.com',
         serverClientId:
-            '452755436213-5d2ujo6g7d4tthk86adluob7q4frege6.apps.googleusercontent.com',
+            '452755436213-iqqujbpasvp3o0qn8b7rf6u5uasldbbe.apps.googleusercontent.com',
       );
       await _checkStoredTokens();
       _googleSignIn.authenticationEvents.listen((event) {

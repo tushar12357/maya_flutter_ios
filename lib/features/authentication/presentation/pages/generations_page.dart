@@ -95,10 +95,6 @@ class _GenerationsPageState extends State<GenerationsPage> {
                   );
                 }
 
-                if (snapshot.hasError) {
-                  return _errorView();
-                }
-
                 if (!snapshot.hasData ||
                     snapshot.data!['data'] == null ||
                     snapshot.data!['data']['success'] != true) {
@@ -330,24 +326,6 @@ class _GenerationsPageState extends State<GenerationsPage> {
         child: Text('Failed to load generations', style: TextStyle(color: Colors.white)),
       );
 
-  Widget _errorView() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, color: Colors.redAccent, size: 48),
-            const SizedBox(height: 16),
-            const Text('Error loading generations',
-                style: TextStyle(color: Colors.white)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _refreshGenerations,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2A57E8),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
+
+
 }
