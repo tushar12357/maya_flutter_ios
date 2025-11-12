@@ -202,7 +202,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                                         subtask: subtask,
                                       ),
                                     );
-                                  }).toList(),
+                                  }),
 
                                   const SizedBox(height: 24),
                                 ],

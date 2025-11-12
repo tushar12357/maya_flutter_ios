@@ -16,7 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _rememberMe = false;
+  final bool _rememberMe = false;
   bool _obscurePassword = true;
 
   @override
@@ -73,9 +73,9 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const SizedBox(height: 60),
 
-                    // Cloud Image (replace with your asset)
+                    // Cloud Image (replace with your asset)abhi
                     Image.asset(
-                      'assets/Layer_1.png',
+                      'assets/maya_logo.png',
                       height: 180,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
@@ -181,42 +181,12 @@ class _LoginPageState extends State<LoginPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               // Remember me
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: _rememberMe,
-                                    onChanged: (value) {
-                                      setState(() => _rememberMe = value!);
-                                    },
-                                    activeColor: const Color(0xFF00D1FF),
-                                    checkColor: Colors.black,
-                                    side: const BorderSide(
-                                      color: Colors.white70,
-                                      width: 1.5,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const Text(
-                                    'Remember me',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
 
                               // Forgot password
                               TextButton(
                                 onPressed: () {
                                   // TODO: Navigate to forgot password
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Forgot password clicked'),
-                                    ),
-                                  );
+                                  context.push('/forgot-password');
                                 },
                                 child: const Text(
                                   'Forgot password?',

@@ -467,30 +467,6 @@ Expanded(
                                       ),
                                     ],
                                   ),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        LucideIcons.copy,
-                                        size: 16,
-                                        color: Colors.white.withOpacity(
-                                            isPast ? 0.3 : 0.5),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Icon(
-                                        LucideIcons.trash2,
-                                        size: 16,
-                                        color: Colors.white.withOpacity(
-                                            isPast ? 0.3 : 0.5),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Icon(
-                                        LucideIcons.moreVertical,
-                                        size: 16,
-                                        color: Colors.white.withOpacity(
-                                            isPast ? 0.3 : 0.5),
-                                      ),
-                                    ],
-                                  ),
                                 ],
                               ),
                             ],

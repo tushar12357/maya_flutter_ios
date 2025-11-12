@@ -114,6 +114,21 @@ class ApiClient {
     return {'email': email, 'password': password};
   }
 
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final response = await post(_publicDio, '/auth/forgot-password', data: {'email': email});
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String email, String otp, String newPassword, String confirmPassword) async {
+    final response = await post(_publicDio, '/auth/reset-password', data: {'email': email, 'new_password': newPassword, 'confirm_password': confirmPassword});
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+  Future<Map<String, dynamic>> verifyOTP(String email, String otp) async {
+    final response = await post(_publicDio, '/auth/verify-otp', data: {'email': email, 'otp': otp});
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
   // Google Sign-In API
   Future<Map<String, dynamic>> googleLogin(Map<String, dynamic> payload) async {
     final response = await post(_publicDio, '/auth/google/', data: payload);
@@ -307,12 +322,15 @@ class ApiClient {
   }) async {
     // Build query string
     final Map<String, dynamic> query = {};
-    if (startDate != null)
+    if (startDate != null) {
       query['start_date'] = DateFormat('yyyy-MM-dd').format(startDate);
-    if (endDate != null)
+    }
+    if (endDate != null) {
       query['end_date'] = DateFormat('yyyy-MM-dd').format(endDate);
-    if (timeFilter != null && timeFilter != 'All')
+    }
+    if (timeFilter != null && timeFilter != 'All') {
       query['time_filter'] = timeFilter.toLowerCase();
+    }
 
     final response = await get(
       _protectedDio,

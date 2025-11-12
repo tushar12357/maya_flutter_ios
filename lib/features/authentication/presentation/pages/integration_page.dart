@@ -99,7 +99,7 @@ late int _currentUserId;
 }
 
 void _showFirefliesKeyPopup() {
-  final TextEditingController _keyController = TextEditingController();
+  final TextEditingController keyController = TextEditingController();
 
   showDialog(
     context: context,
@@ -155,7 +155,7 @@ void _showFirefliesKeyPopup() {
                     ),
                   ),
                   child: TextField(
-                    controller: _keyController,
+                    controller: keyController,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
                       hintText: "Enter API Key",
@@ -184,7 +184,7 @@ void _showFirefliesKeyPopup() {
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () async {
-                        final apiKey = _keyController.text.trim();
+                        final apiKey = keyController.text.trim();
                         if (apiKey.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -440,19 +440,11 @@ Future<void> _saveFirefliesKey(String apiKey) async {
 
  Future<void> _handleGoogleSignIn(Integration integration) async {
   try {
-    if (_currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User not loaded")),
-      );
-      return;
-    }
-
     GoogleSignInAccount? account = _currentUser;
     if (account == null) {
       account = await _googleSignIn.authenticate(
         scopeHint: integration.scopes,
       );
-      if (account == null) return;
       setState(() => _currentUser = account);
     }
 

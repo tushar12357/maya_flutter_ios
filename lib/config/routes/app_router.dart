@@ -1,3 +1,4 @@
+import 'package:Maya/features/authentication/presentation/pages/forgot_password.dart';
 import 'package:Maya/features/widgets/talk_to_maya.dart';
 import 'package:Maya/utils/tab_layout.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class AppRouter {
   static const generations = '/generations';
   static const todos = '/todos';
   static const reminders = '/reminders';
+  static const forgotPassword = '/forgot-password';
 
   // Nested/detail
   static const taskDetail = '/tasks/:taskId';
@@ -153,6 +155,7 @@ class AppRouter {
         GoRoute(path: generations, builder: (_, __) => const GenerationsPage()),
         GoRoute(path: todos, builder: (_, __) => const TodosPage()),
         GoRoute(path: reminders, builder: (_, __) => const RemindersPage()),
+        GoRoute(path: forgotPassword, builder: (_, __) => const ForgotPasswordPage()),
       ],
     );
   }

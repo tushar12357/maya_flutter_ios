@@ -343,7 +343,7 @@ onPressed: _showChangePasswordDialog,
     if (createdAt == null) return "N/A";
     try {
       final dateTime = DateTime.parse(createdAt);
-      return DateFormat('MMM dd, h:mm a').format(dateTime) + ' IST';
+      return '${DateFormat('MMM dd, h:mm a').format(dateTime)} IST';
     } catch (_) {
       return "N/A";
     }

@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/core/services/mic_service.dart';
 import 'package:ultravox_client/ultravox_client.dart';
-import 'package:audioplayers/audioplayers.dart'; // Add this import for audio playback
+// optional if you use audio playback
 
 class TalkToMaya extends StatefulWidget {
   const TalkToMaya({super.key});
@@ -20,84 +20,81 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
   bool _isSpeakerMuted = false;
   String _currentTranscriptChunk = '';
   String _status = 'Talk To Maya';
-  // 🔒 new: block late transcripts after stop/disconnect
   bool _ignoreTranscripts = false;
+
   final ThunderSessionService _shared = ThunderSessionService();
   UltravoxSession? _session;
+
   final ScrollController _scrollController = ScrollController();
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  late final AnimationController _pulseController;
-  late final AnimationController _orbController;
-  late final AnimationController _speakingPulseController;
-  late final Animation<double> _pulseAnimation;
-  late final Animation<double> _orbScaleAnimation;
-  late final Animation<double> _speakingPulseAnimation;
-  List<Map<String, dynamic>> _conversation = [];
 
-  // Add AudioPlayer for typing sounds
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isPlayingTypingSound = false; // Prevent overlapping sounds
+  late AnimationController _pulseController;
+  late AnimationController _orbController;
+  late AnimationController _speakingPulseController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _orbScaleAnimation;
+  late Animation<double> _speakingPulseAnimation;
+
+  List<Map<String, dynamic>> _conversation = [];
 
   @override
   void initState() {
     super.initState();
     _shared.init();
     _session = _shared.session;
+
+    // Restore persistent UI state
     _isMicMuted = _shared.isMicMuted;
     _isSpeakerMuted = _shared.isSpeakerMuted;
     _currentTranscriptChunk = _shared.currentTranscript;
-    _conversation.addAll(_shared.conversation);
+    _conversation = List.from(_shared.conversation);
+
+    // Bind listeners (safe if null)
     _session?.statusNotifier.addListener(_onStatusChange);
     _session?.dataMessageNotifier.addListener(_onDataMessage);
     _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-    _checkInitialPermission();
-    _orbController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _orbScaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _orbController, curve: Curves.easeInOut),
-    );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.25).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    _speakingPulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _speakingPulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(CurvedAnimation(
-      parent: _speakingPulseController,
-      curve: Curves.easeInOut,
-    ));
 
-    // Preload typing sound (add 'assets/sounds/typing_key.mp3' to pubspec.yaml under assets)
-    _audioPlayer.setReleaseMode(ReleaseMode.stop);
+    _checkInitialPermission();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _orbController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _orbScaleAnimation = Tween<double>(begin: 1.0, end: 1.15)
+        .animate(CurvedAnimation(parent: _orbController, curve: Curves.easeInOut));
+
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.25)
+        .animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+
+    _speakingPulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _speakingPulseAnimation =
+        Tween<double>(begin: 1.0, end: 1.1).animate(CurvedAnimation(parent: _speakingPulseController, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
-    _session?.statusNotifier.removeListener(_onStatusChange);
-    _session?.dataMessageNotifier.removeListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+    // Unbind listeners if session exists
+    try {
+      _session?.statusNotifier.removeListener(_onStatusChange);
+      _session?.dataMessageNotifier.removeListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+    } catch (_) {}
+
     _scrollController.dispose();
     _textController.dispose();
     _focusNode.dispose();
     _pulseController.dispose();
     _orbController.dispose();
     _speakingPulseController.dispose();
-    _audioPlayer.dispose(); // Dispose audio player
     super.dispose();
   }
 
   void _onStatusChange() {
     if (!mounted) return;
+
     final st = _session!.status;
     setState(() {
       _status = _mapStatusToSpeech(st);
@@ -105,21 +102,11 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
           st == UltravoxSessionStatus.speaking ||
           st == UltravoxSessionStatus.thinking;
     });
-    // 🔒 When disconnecting/disconnected: block/clear live text *and* ignore any late packets
-    if (st == UltravoxSessionStatus.disconnecting ||
-        st == UltravoxSessionStatus.disconnected) {
+
+    if (st == UltravoxSessionStatus.disconnecting || st == UltravoxSessionStatus.disconnected) {
       _ignoreTranscripts = true;
-      if (_currentTranscriptChunk.isNotEmpty) {
-        setState(() => _currentTranscriptChunk = '');
-      }
-      // double-clear next frame to kill any stragglers rendered after status flip
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_currentTranscriptChunk.isNotEmpty) {
-          setState(() => _currentTranscriptChunk = '');
-        }
-      });
     }
+
     if (st == UltravoxSessionStatus.speaking) {
       _pulseController.stop();
       _speakingPulseController.repeat();
@@ -134,74 +121,63 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
 
   void _onDataMessage() {
     if (!mounted) return;
-    // 🔒 hard gate for ghost packets during/after teardown
+
+    // Gate: if we should ignore transcripts (disconnecting/disconnected)
     final s = _session?.status;
-    if (_ignoreTranscripts ||
-        s == UltravoxSessionStatus.disconnecting ||
-        s == UltravoxSessionStatus.disconnected) {
+    if (_ignoreTranscripts || s == UltravoxSessionStatus.disconnecting || s == UltravoxSessionStatus.disconnected) {
       if (_currentTranscriptChunk.isNotEmpty) {
         setState(() => _currentTranscriptChunk = '');
+        _shared.clearTranscript();
       }
       return;
     }
+
     final transcripts = _session!.transcripts;
     if (transcripts.isEmpty) return;
+
     final latest = transcripts.last;
-    // Live chunk → show as typing bubble and scroll
+
+    // live partial chunk
     if (!latest.isFinal) {
       setState(() {
         _currentTranscriptChunk = latest.text;
+        _shared.updateTranscript(latest.text);
       });
       _scrollToBottom();
       return;
     }
-    // ignore empty final
+
+    // final chunk -> append to conversation
     final finalText = latest.text.trim();
     if (finalText.isEmpty) return;
+
     final speaker = latest.speaker == Role.user ? 'user' : 'maya';
+
     // prevent duplicates
     if (_conversation.isNotEmpty) {
       final last = _conversation.last;
       if (last['type'] == speaker && last['text'] == finalText) {
+        _shared.clearTranscript();
         setState(() => _currentTranscriptChunk = '');
         return;
       }
     }
+
     setState(() {
       _conversation.add({'type': speaker, 'text': finalText});
+      _shared.addMessage(speaker, finalText);
       _currentTranscriptChunk = '';
+      _shared.clearTranscript();
     });
+
     _scrollToBottom();
   }
 
   void _onDebugMessage() {
-    final msg = _session!.experimentalMessageNotifier.value;
-    print('Got a debug message: ${msg.toString()}');
-
-    // Check for search tool calls and play typing sound
-    if (msg is Map<String, dynamic> && msg['type'] == 'debug') {
-      final message = msg['message'].toString();
-      if ((message.contains('"type": "deep_search"') || message.contains('"type": "simple_search"')) &&
-          !_isPlayingTypingSound) {
-        _playTypingSound();
-      }
-    }
-  }
-
-  // Play a sequence of quick typing key sounds to simulate searching/typing
-  Future<void> _playTypingSound() async {
-    if (_isPlayingTypingSound) return;
-    _isPlayingTypingSound = true;
-
-    // Play 5 quick keypress sounds with slight delays
-    for (int i = 0; i < 5; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      await _audioPlayer.play(AssetSource('typing.mp3')); // Adjust path as needed
-    }
-
-    // Reset flag after a short delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    _isPlayingTypingSound = false;
+    // Access experimental messages via session?.experimentalMessages if needed
+    // For now ignore or print when debugging:
+    // final msgs = _session?.experimentalMessages;
+    // print('debug messages: $msgs');
   }
 
   String _mapStatusToSpeech(UltravoxSessionStatus status) {
@@ -234,65 +210,122 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _onStart() async {
-    if (_shared.isSessionActive) return;
-    final granted = await MicPermissionService.request(context);
-    if (!granted) return;
-    setState(() {
-      _isConnecting = true;
-      _isMicMuted = false;
-      _isSpeakerMuted = false;
-    });
-    _ignoreTranscripts = false; // ✅ allow new transcripts
-    _orbController.forward(from: 0);
-    _pulseController.repeat();
-    try {
-      final payload = _apiClient.prepareStartThunderPayload('main');
-      final res = await _apiClient.startThunder(payload['agent_type']);
-      if (res['statusCode'] == 200) {
-        final joinUrl = res['data']['data']['joinUrl'];
-        await _session!.joinCall(joinUrl);
-        _session!.micMuted = _isMicMuted;
-        _session!.speakerMuted = _isSpeakerMuted;
-        setState(() {
-          _isConnecting = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isConnecting = false;
-        _currentTranscriptChunk = 'Error: $e';
-      });
-    }
+ Future<void> _onStart() async {
+  // If an active session is present, treat tap as a stop request instead.
+  if (_shared.isSessionActive && _session?.status != UltravoxSessionStatus.disconnected) {
+    await _onStop();
+    return;
   }
 
-  void _onStop() {
-    // 🔒 block late packets immediately
+  final granted = await MicPermissionService.request(context);
+  if (!granted) return;
+
+  setState(() {
+    _isConnecting = true;
+    _isMicMuted = false;
+    _isSpeakerMuted = false;
+  });
+
+  _ignoreTranscripts = false;
+  _orbController.forward(from: 0);
+  _pulseController.repeat();
+
+  try {
+    final payload = _apiClient.prepareStartThunderPayload('main');
+    final res = await _apiClient.startThunder(payload['agent_type']);
+
+    if (res['statusCode'] == 200) {
+      final joinUrl = res['data']['data']['joinUrl'];
+
+      _shared.init();
+      _session = _shared.session;
+
+      _session?.statusNotifier.removeListener(_onStatusChange);
+      _session?.dataMessageNotifier.removeListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+
+      _session?.statusNotifier.addListener(_onStatusChange);
+      _session?.dataMessageNotifier.addListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+      await _session!.joinCall(joinUrl);
+
+      _session!.micMuted = _isMicMuted;
+      _session!.speakerMuted = _isSpeakerMuted;
+
+      setState(() => _isConnecting = false);
+    } else {
+      setState(() {
+        _isConnecting = false;
+        _currentTranscriptChunk = 'Failed to start session';
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _isConnecting = false;
+      _currentTranscriptChunk = 'Error: $e';
+    });
+  }
+}
+
+
+  Future<void> _onStop() async {
+    // Immediately block late transcripts
     _ignoreTranscripts = true;
+
+    // mute locally
     _session?.micMuted = true;
     _session?.speakerMuted = true;
-    _session?.leaveCall();
+
     setState(() {
       _isListening = false;
       _isConnecting = false;
       _currentTranscriptChunk = '';
+
+    _status = 'Talk To Maya';
     });
-    // Post-frame double-clear for absolute safety
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_currentTranscriptChunk.isNotEmpty) {
-        setState(() => _currentTranscriptChunk = '');
-      }
-    });
+
+    // Unbind listeners before resetting session to avoid stray callbacks
+    try {
+      _session?.statusNotifier.removeListener(_onStatusChange);
+      _session?.dataMessageNotifier.removeListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+    } catch (_) {}
+
+    // Reset session and clear shared state
+    await _shared.resetSession();
+
+    // Prepare a fresh session for future starts
+    _shared.init();
+    _session = _shared.session;
+
+    // Rebind listeners to the new session (so UI remains responsive)
+    _session?.statusNotifier.addListener(_onStatusChange);
+    _session?.dataMessageNotifier.addListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
     _pulseController.stop();
     _speakingPulseController.stop();
     _orbController.reverse(from: 1.0);
+
+    if (mounted) {
+      
+
+      // Update local copies to reflect cleared shared state
+      setState(() {
+        _conversation = List.from(_shared.conversation);
+        _currentTranscriptChunk = _shared.currentTranscript;
+        _isMicMuted = _shared.isMicMuted;
+        _isSpeakerMuted = _shared.isSpeakerMuted;
+      });
+    }
   }
 
   void _toggleMicMute() {
     if (_controlsDisabled) return;
     setState(() {
       _isMicMuted = !_isMicMuted;
+      _shared.isMicMuted = _isMicMuted;
       _session?.micMuted = _isMicMuted;
     });
   }
@@ -301,6 +334,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     if (_controlsDisabled) return;
     setState(() {
       _isSpeakerMuted = !_isSpeakerMuted;
+      _shared.isSpeakerMuted = _isSpeakerMuted;
       _session?.speakerMuted = _isSpeakerMuted;
     });
   }
@@ -309,11 +343,19 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     if (_controlsDisabled) return;
     final msg = _textController.text.trim();
     if (msg.isEmpty) return;
-    _session?.sendText(msg);
+
+    try {
+      _session?.sendText(msg);
+    } catch (e) {
+      // ignore send errors locally, still show message
+    }
+
     setState(() {
       _conversation.add({'type': 'user', 'text': msg});
+      _shared.addMessage('user', msg);
       _textController.clear();
     });
+
     _scrollToBottom();
   }
 
@@ -361,18 +403,14 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
                       IconButton(
                         icon: Icon(
                           _isMicMuted ? Icons.mic_off : Icons.mic,
-                          color: _controlsDisabled
-                              ? Colors.grey
-                              : (_isMicMuted ? Colors.grey : Colors.white),
+                          color: _controlsDisabled ? Colors.grey : (_isMicMuted ? Colors.grey : Colors.white),
                         ),
                         onPressed: _controlsDisabled ? null : _toggleMicMute,
                       ),
                       IconButton(
                         icon: Icon(
                           _isSpeakerMuted ? Icons.volume_off : Icons.volume_up,
-                          color: _controlsDisabled
-                              ? Colors.grey
-                              : (_isSpeakerMuted ? Colors.grey : Colors.white),
+                          color: _controlsDisabled ? Colors.grey : (_isSpeakerMuted ? Colors.grey : Colors.white),
                         ),
                         onPressed: _controlsDisabled ? null : _toggleSpeakerMute,
                       ),
@@ -382,10 +420,9 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
                 const SizedBox(height: 4),
                 Text(_status, style: const TextStyle(color: Colors.white70, fontSize: 17)),
                 const SizedBox(height: 24),
+
                 GestureDetector(
-                  onTap: () {
-                    _isListening || _isConnecting ? _onStop() : _onStart();
-                  },
+                  onTap: () => _isListening || _isConnecting ? _onStop() : _onStart(),
                   child: AnimatedBuilder(
                     animation: Listenable.merge([_orbController, _speakingPulseController]),
                     builder: (_, __) => Transform.scale(
@@ -396,20 +433,19 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           image: DecorationImage(
-                            image: AssetImage('assets/Layer_1.png'),
-                            fit: BoxFit.contain,
+                            image: AssetImage('assets/maya_logo.png'),
+                            fit: BoxFit.cover,
                           ),
                         ),
                         child: _isConnecting
-                            ? const Center(
-                                child: CircularProgressIndicator(color: Colors.cyan),
-                              )
+                            ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
                             : null,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
+
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
@@ -436,8 +472,10 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
                           ),
                         );
                       }
+
                       final msg = _conversation[i];
                       final isUser = msg['type'] == 'user';
+
                       return Align(
                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
@@ -453,6 +491,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
                     },
                   ),
                 ),
+
                 Container(
                   padding: const EdgeInsets.all(16),
                   child: Row(
