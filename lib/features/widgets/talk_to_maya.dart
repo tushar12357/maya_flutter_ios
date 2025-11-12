@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/core/services/mic_service.dart';
 import 'package:ultravox_client/ultravox_client.dart';
-// optional if you use audio playback
+import 'package:audioplayers/audioplayers.dart'; // 👈 added
 
 class TalkToMaya extends StatefulWidget {
   const TalkToMaya({super.key});
@@ -37,6 +37,10 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
   late Animation<double> _orbScaleAnimation;
   late Animation<double> _speakingPulseAnimation;
 
+  // Add AudioPlayer for typing sounds
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlayingTypingSound = false; // Prevent overlapping sounds
+
   List<Map<String, dynamic>> _conversation = [];
 
   @override
@@ -55,6 +59,7 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     _session?.statusNotifier.addListener(_onStatusChange);
     _session?.dataMessageNotifier.addListener(_onDataMessage);
     _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+    _audioPlayer.setReleaseMode(ReleaseMode.stop);
 
     _checkInitialPermission();
     _setupAnimations();
@@ -82,6 +87,8 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
       _session?.dataMessageNotifier.removeListener(_onDataMessage);
       _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
     } catch (_) {}
+
+    _audioPlayer.dispose(); // Dispose audio player
 
     _scrollController.dispose();
     _textController.dispose();
@@ -174,10 +181,33 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
   }
 
   void _onDebugMessage() {
-    // Access experimental messages via session?.experimentalMessages if needed
-    // For now ignore or print when debugging:
-    // final msgs = _session?.experimentalMessages;
-    // print('debug messages: $msgs');
+    final msg = _session!.experimentalMessageNotifier.value;
+    print('Got a debug message: ${msg.toString()}');
+
+    // Check for search tool calls and play typing sound
+    if (msg is Map<String, dynamic> && msg['type'] == 'debug') {
+      final message = msg['message'].toString();
+      if ((message.contains('"type": "deep_search"') || message.contains('"type": "simple_search"')) &&
+          !_isPlayingTypingSound) {
+        _playTypingSound();
+      }
+    }
+  }
+
+  // Play a sequence of quick typing key sounds to simulate searching/typing
+  Future<void> _playTypingSound() async {
+    if (_isPlayingTypingSound) return;
+    _isPlayingTypingSound = true;
+
+    // Play 5 quick keypress sounds with slight delays
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      await _audioPlayer.play(AssetSource('typing.mp3')); // Adjust path as needed
+    }
+
+    // Reset flag after a short delay
+    await Future.delayed(const Duration(milliseconds: 500));
+    _isPlayingTypingSound = false;
   }
 
   String _mapStatusToSpeech(UltravoxSessionStatus status) {
