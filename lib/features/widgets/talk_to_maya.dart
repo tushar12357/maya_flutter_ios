@@ -180,19 +180,55 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     _scrollToBottom();
   }
 
-  void _onDebugMessage() {
-    final msg = _session!.experimentalMessageNotifier.value;
-    print('Got a debug message: ${msg.toString()}');
+void _onDebugMessage() {
+  final msg = _session!.experimentalMessageNotifier.value;
+  print('Got a debug message: ${msg.toString()}');
 
-    // Check for search tool calls and play typing sound
-    if (msg is Map<String, dynamic> && msg['type'] == 'debug') {
-      final message = msg['message'].toString();
-      if ((message.contains('"type": "deep_search"') || message.contains('"type": "simple_search"')) &&
-          !_isPlayingTypingSound) {
-        _playTypingSound();
-      }
+  if (msg is Map<String, dynamic> && msg['type'] == 'debug') {
+    final message = msg['message'].toString();
+
+    // 1️⃣ Detect search activity (for typing sounds)
+    if ((message.contains('"type": "deep_search"') || message.contains('"type": "simple_search"')) &&
+        !_isPlayingTypingSound) {
+      _playTypingSound();
+    }
+
+    // 2️⃣ Detect hangUp tool call — end immediately
+    if (message.contains('"name":"hangUp"') ||
+        message.contains('"FunctionCall(name=\'hangUp\'') ||
+        (message.contains('"tool_calls":') && message.contains('"hangUp"'))) {
+      debugPrint('🔴 HangUp tool call detected — immediately ending session.');
+      _forceEndSession();
     }
   }
+}
+
+void _forceEndSession() {
+  if (_ignoreTranscripts) return;
+  _ignoreTranscripts = true;
+
+  // Stop session instantly (no awaits)
+  try {
+    _session?.leaveCall();
+  } catch (_) {}
+
+  try {
+    _shared.resetSession(); // fire and forget
+  } catch (_) {}
+
+  // Immediately clear UI state
+  if (mounted) {
+    setState(() {
+      _conversation.clear();
+      _currentTranscriptChunk = '';
+      _status = 'Talk To Maya';
+      _isListening = false;
+      _isConnecting = false;
+    });
+  }
+
+  debugPrint('✅ Maya session ended instantly after hangUp tool call.');
+}
 
   // Play a sequence of quick typing key sounds to simulate searching/typing
   Future<void> _playTypingSound() async {

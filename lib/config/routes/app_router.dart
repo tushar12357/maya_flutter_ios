@@ -134,9 +134,9 @@ class AppRouter {
         GoRoute(
           path: taskDetail,
           builder: (_, state) => TaskDetailPage(
-            sessionId: state.pathParameters['taskId']!,
-            apiClient: ApiClient(Dio(), Dio()),
-            taskQuery: '',
+            // sessionId: state.pathParameters['taskId']!,
+            // apiClient: ApiClient(Dio(), Dio()),
+            // taskQuery: '',
           ),
         ),
 

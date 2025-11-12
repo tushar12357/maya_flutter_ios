@@ -129,6 +129,24 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
+  Future<Map<String, dynamic>> updateUserProfilePartial(
+    Map<String, dynamic> fieldsToUpdate,
+  ) async {
+    final response = await _protectedDio.patch(
+      '/auth/users/update',
+      data: fieldsToUpdate,
+    );
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+    Future<Map<String, dynamic>> getIntegrationStatus() async {
+    final response = await _protectedDio.get('/auth/integration/status');
+    print('getCurrentUser response: ${response.data}');
+    print('getCurrentUser statusCode: ${response.statusCode}');
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+
   // Google Sign-In API
   Future<Map<String, dynamic>> googleLogin(Map<String, dynamic> payload) async {
     final response = await post(_publicDio, '/auth/google/', data: payload);

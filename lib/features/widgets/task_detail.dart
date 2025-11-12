@@ -2,25 +2,21 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:dio/dio.dart';
 import 'package:Maya/core/network/api_client.dart';
 
 class TaskDetailPage extends StatefulWidget {
-  final String sessionId;
-  final String taskQuery;
-  final ApiClient apiClient;
-
-  const TaskDetailPage({
-    super.key,
-    required this.sessionId,
-    required this.taskQuery,
-    required this.apiClient,
-  });
+  const TaskDetailPage({super.key});
 
   @override
   _TaskDetailPageState createState() => _TaskDetailPageState();
 }
 
 class _TaskDetailPageState extends State<TaskDetailPage> {
+  late final ApiClient apiClient;
+  late final String sessionId;
+  late final String taskQuery;
+
   List<Map<String, dynamic>> subtasks = [];
   String mainDescription = 'No description available.';
   bool isLoading = true;
@@ -29,6 +25,18 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize API client here (no prop drilling)
+    final publicDio = Dio();
+    final protectedDio = Dio();
+    apiClient = ApiClient(publicDio, protectedDio);
+
+    // Extract params safely
+    final state = GoRouterState.of(context);
+    sessionId = state.pathParameters['id'] ?? '';
+    final extraData = state.extra as Map<String, dynamic>?;
+    taskQuery = extraData?['query']?.toString() ?? 'Task Details';
+
     fetchTaskDetail();
   }
 
@@ -39,11 +47,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     });
 
     try {
-      final response = await widget.apiClient.fetchTasksDetail(
-        sessionId: widget.sessionId,
-      );
+      final response = await apiClient.fetchTasksDetail(sessionId: sessionId);
 
-      if (response['statusCode'] == 200 && (response['data']['success'] as bool? ?? false)) {
+      if (response['statusCode'] == 200 &&
+          (response['data']['success'] as bool? ?? false)) {
         final dataList = response['data']['data'] as List<dynamic>?;
 
         if (dataList == null || dataList.isEmpty) {
@@ -54,7 +61,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           return;
         }
 
-        final List<Map<String, dynamic>> tasks = dataList.cast<Map<String, dynamic>>();
+        final List<Map<String, dynamic>> tasks =
+            dataList.cast<Map<String, dynamic>>();
 
         // Extract description from first subtask
         final firstPayload = tasks.first['user_payload'] as Map<String, dynamic>?;
@@ -62,7 +70,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         if (dataStr != null) {
           try {
             final payloadJson = jsonDecode(dataStr) as Map<String, dynamic>;
-            mainDescription = payloadJson['description']?.toString() ?? 'No description.';
+            mainDescription =
+                payloadJson['description']?.toString() ?? 'No description.';
           } catch (_) {
             mainDescription = 'No description.';
           }
@@ -75,7 +84,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       } else {
         setState(() {
           isLoading = false;
-          errorMessage = response['message']?.toString() ?? 'Failed to load task.';
+          errorMessage =
+              response['message']?.toString() ?? 'Failed to load task.';
         });
       }
     } catch (e) {
@@ -89,7 +99,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   String _formatDate(String? timestamp) {
     if (timestamp == null) return 'N/A';
     try {
-      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(timestamp).toLocal());
+      return DateFormat('dd MMM yyyy, hh:mm a')
+          .format(DateTime.parse(timestamp).toLocal());
     } catch (_) {
       return 'N/A';
     }
@@ -97,11 +108,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final routeData = GoRouterState.of(context).extra as Map<String, dynamic>?;
-    final taskQuery = widget.taskQuery.isNotEmpty
-        ? widget.taskQuery
-        : (routeData?['query']?.toString() ?? 'Task Details');
-
     return Scaffold(
       body: Stack(
         children: [
@@ -124,15 +130,19 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                        onPressed: () => context.push('/tasks'),
+                        icon: const Icon(Icons.arrow_back_ios,
+                            color: Colors.white, size: 20),
+                        onPressed: () => context.pop(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Task Detail',
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -141,21 +151,23 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 // Main Content
                 Expanded(
                   child: isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white))
                       : errorMessage != null
                           ? Center(
                               child: Text(
                                 errorMessage!,
-                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 14),
                                 textAlign: TextAlign.center,
                               ),
                             )
                           : SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Task Title
                                   Text(
                                     taskQuery,
                                     style: const TextStyle(
@@ -165,8 +177,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-
-                                  // Description Section
                                   _buildSectionCard(
                                     title: 'Description',
                                     child: Text(
@@ -179,8 +189,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 20),
-
-                                  // Subtasks Section
                                   Text(
                                     'Subtasks',
                                     style: TextStyle(
@@ -190,20 +198,18 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-
-                                  // Subtask Cards with JSON
                                   ...subtasks.asMap().entries.map((entry) {
                                     final index = entry.key;
                                     final subtask = entry.value;
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 16),
                                       child: _buildSubtaskCard(
                                         index: index + 1,
                                         subtask: subtask,
                                       ),
                                     );
-                                  }),
-
+                                  }).toList(),
                                   const SizedBox(height: 24),
                                 ],
                               ),
@@ -229,14 +235,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(title,
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           child,
         ],
@@ -244,10 +247,13 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     );
   }
 
-  Widget _buildSubtaskCard({required int index, required Map<String, dynamic> subtask}) {
+  Widget _buildSubtaskCard(
+      {required int index, required Map<String, dynamic> subtask}) {
     final createdAt = subtask['created_at']?.toString();
     final status = subtask['status']?.toString().toLowerCase() ?? 'pending';
-    final query = (subtask['user_payload'] as Map<String, dynamic>?)?['query']?.toString() ?? 'No query';
+    final query = (subtask['user_payload'] as Map<String, dynamic>?)?['query']
+            ?.toString() ??
+        'No query';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -269,14 +275,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(
-                    '$index',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: Text('$index',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -284,10 +287,9 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 child: Text(
                   query,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -296,24 +298,15 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            _formatDate(createdAt),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 12,
-            ),
-          ),
+          Text(_formatDate(createdAt),
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.5), fontSize: 12)),
           const SizedBox(height: 16),
-
-          // Full JSON Display
-          Text(
-            'Full JSON',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('Full JSON',
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
@@ -326,11 +319,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             child: SelectableText(
               _prettyJson(subtask),
               style: const TextStyle(
-                fontFamily: 'Courier',
-                fontSize: 11,
-                color: Color(0xFF94A3B8),
-                height: 1.5,
-              ),
+                  fontFamily: 'Courier',
+                  fontSize: 11,
+                  color: Color(0xFF94A3B8),
+                  height: 1.5),
             ),
           ),
         ],
@@ -353,14 +345,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         color: (cfg['color'] as Color).withOpacity(0.15),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        cfg['label'] as String,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: cfg['color'] as Color,
-        ),
-      ),
+      child: Text(cfg['label'] as String,
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cfg['color'] as Color)),
     );
   }
 

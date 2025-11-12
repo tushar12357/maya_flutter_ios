@@ -122,49 +122,53 @@ class _HomePageState extends State<HomePage> {
   // -----------------------------------------------------------------------
   // 2. Centralised profile sync (FCM + location + timezone)
   // -----------------------------------------------------------------------
-  Future<void> _syncUserProfile() async {
+ Future<void> _syncUserProfile() async {
     try {
       final userResp = await _apiClient.getCurrentUser();
       if (userResp['statusCode'] != 200) {
         _showSnack('User fetch failed: ${userResp['data']['message']}');
         return;
       }
+
       final userData = userResp['data'] as Map<String, dynamic>;
       final String firstName = userData['first_name']?.toString() ?? '';
       final String lastName = userData['last_name']?.toString() ?? '';
       final String phoneNumber = userData['phone_number']?.toString() ?? '';
+
       setState(() {
         _userFirstName = firstName;
         _userLastName = lastName;
       });
 
+      // Wait for FCM + Location/Timezone
       final results = await Future.wait([
         _waitForFcmToken(),
         _obtainLocationAndTimezone(),
       ]);
+
       final String? token = results[0] as String?;
       final (Position position, String timezone) =
           results[1] as (Position, String);
 
-      
+      if (token == null) return;
 
-      final updateResp = await _apiClient.updateUserProfile(
-        firstName: firstName,
-        phoneNumber: phoneNumber,
-        lastName: lastName,
-        fcmToken: token ?? '',
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timezone: timezone,
-      );
+      // ✅ Only send dynamic fields that can change frequently
+      final Map<String, dynamic> payload = {
+        "fcm_token": token,
+        "latitude": position.latitude,
+        "longitude": position.longitude,
+        "timezone": timezone,
+      };
+
+      final updateResp = await _apiClient.updateUserProfilePartial(payload);
 
       if (updateResp['statusCode'] == 200) {
         _showSnack('Profile synced successfully');
       } else {
-        _showSnack('Profile sync failed: ${updateResp['data']}');
+        _showSnack('Profile sync failed: ${updateResp['data']['message']}');
       }
     } catch (e) {
-      // _showSnack('Sync error: $e');
+      debugPrint('Sync error: $e');
     }
   }
 
