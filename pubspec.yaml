@@ -87,6 +87,7 @@ dependencies:
   timeago: ^3.7.1
   animate_do: ^4.2.0
   flutter_blue_plus: ^2.0.1
+  audio_session: ^0.2.2
 
 dev_dependencies:
   flutter_test:

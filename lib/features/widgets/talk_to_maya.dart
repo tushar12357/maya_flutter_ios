@@ -1,3 +1,4 @@
+import 'package:Maya/core/services/call_interruption_service.dart';
 import 'package:Maya/core/services/thunder_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -31,7 +32,8 @@ class _TalkToMayaState extends State<TalkToMaya>
   // === Services & Session ===
   final ThunderSessionService _shared = ThunderSessionService();
   UltravoxSession? _session;
-
+final CallInterruptionService _callService = CallInterruptionService();
+bool _wasMutedByCall = false; // Track if we muted due to call
   // === UI Controllers ===
   final ScrollController _scrollController = ScrollController();
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
@@ -63,7 +65,7 @@ class _TalkToMayaState extends State<TalkToMaya>
     _isSpeakerMuted = _shared.isSpeakerMuted;
     _currentTranscriptChunk = _shared.currentTranscript;
     _conversation = List.from(_shared.conversation);
-
+_setupCallInterruptionHandler();
     _setupAnimations();
     _setupListeners();
     _checkInitialPermission();
@@ -110,6 +112,40 @@ class _TalkToMayaState extends State<TalkToMaya>
     _speakingPulseController.dispose();
     super.dispose();
   }
+
+  void _setupCallInterruptionHandler() async {
+  _callService.onCallStarted = () {
+    if (!mounted || _session == null || _isMicMuted) return;
+
+    print('CALL DETECTED → Muting Maya automatically');
+    _wasMutedByCall = _isMicMuted == false; // Remember if user had mic ON
+
+    setState(() {
+      _isMicMuted = true;
+      _shared.isMicMuted = true;
+      _session?.micMuted = true;
+    });
+  };
+
+  _callService.onCallEnded = () {
+    if (!mounted || _session == null || !_wasMutedByCall) return;
+
+    print('CALL ENDED → Unmuting Maya');
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted && _wasMutedByCall) {
+        setState(() {
+          _isMicMuted = false;
+          _shared.isMicMuted = false;
+          _session?.micMuted = false;
+        });
+        _wasMutedByCall = false;
+      }
+    });
+  };
+
+  // Start listening
+  await _callService.initialize();
+}
 
   // ===================================================================
   // ONE AND ONLY RESET FUNCTION — SOLVES ALL RACE CONDITIONS
@@ -215,63 +251,56 @@ class _TalkToMayaState extends State<TalkToMaya>
   // ===================================================================
   // Data Message: Transcripts
   // ===================================================================
-  void _onDataMessage() {
-    if (!mounted || _ignoreTranscripts || _isResetting) {
-      if (_currentTranscriptChunk.isNotEmpty) {
-        setState(() => _currentTranscriptChunk = '');
-      }
-      return;
-    }
+void _onDataMessage() {
+  if (!mounted || _ignoreTranscripts || _isResetting) return;
 
-    final transcripts = _session!.transcripts;
-    if (transcripts.isEmpty) return;
+  final transcripts = _session!.transcripts;
+  if (transcripts.isEmpty) return;
 
-    final latest = transcripts.last;
+  final latest = transcripts.last;
+  final text = latest.text.trim();
 
-    // Live partial chunk
-    if (!latest.isFinal) {
+  // Live partial transcript
+  if (!latest.isFinal) {
+    if (text.isNotEmpty && _currentTranscriptChunk != text) {
       setState(() {
-        _currentTranscriptChunk = latest.text;
+        _currentTranscriptChunk = text;
+        _shared.currentTranscript = text;
       });
       _scrollToBottom();
-      return;
     }
-
-    // Final message
-    final text = latest.text.trim();
-    if (text.isEmpty) return;
-
-    final speaker = latest.speaker == Role.user ? 'user' : 'maya';
-
-    // BLOCK DUPLICATE: when user types and it comes back as transcript
-    if (speaker == 'user' && text == _lastSentText) {
-      _lastSentText = '';
-      _shared.clearTranscript();
-      setState(() => _currentTranscriptChunk = '');
-      return;
-    }
-
-    // Prevent actual duplicates
-    if (_conversation.isNotEmpty) {
-      final last = _conversation.last;
-      if (last['type'] == speaker && last['text'] == text) {
-        _shared.clearTranscript();
-        setState(() => _currentTranscriptChunk = '');
-        return;
-      }
-    }
-
-    setState(() {
-      _conversation.add({'type': speaker, 'text': text});
-      _shared.addMessage(speaker, text);
-      _currentTranscriptChunk = '';
-      _shared.clearTranscript();
-    });
-    _scrollToBottom();
+    return;
   }
 
-  // ===================================================================
-  // Debug Message: HangUp Detection + Typing Sound
+  // Final message
+  if (text.isEmpty) return;
+
+  final isUser = latest.speaker == Role.user;
+  final speakerType = isUser ? 'user' : 'maya';
+
+  // Block typed message echo
+  if (isUser && text == _lastSentText) {
+    _lastSentText = '';
+    return;
+  }
+
+  // Block duplicate messages
+  if (_conversation.isNotEmpty) {
+    final last = _conversation.last;
+    if (last['type'] == speakerType && last['text'] == text) {
+      return;
+    }
+  }
+
+  setState(() {
+    _conversation.add({'type': speakerType, 'text': text});
+    _shared.addMessage(speakerType, text);
+    _currentTranscriptChunk = '';
+    _shared.currentTranscript = '';
+  });
+
+  _scrollToBottom();
+}// Debug Message: HangUp Detection + Typing Sound
   // ===================================================================
   void _onDebugMessage() {
     if (_ignoreTranscripts || _isResetting) return;
