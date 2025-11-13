@@ -13,13 +13,11 @@ class TodosPage extends StatefulWidget {
 
 class _TodosPageState extends State<TodosPage> {
   List<Map<String, dynamic>> todos = [];
-  List<Map<String, dynamic>> filteredTodos = [];
   bool isLoadingTodos = false;
   bool isLoadingMore = false;
   int currentPage = 1;
   bool hasMore = true;
   final ScrollController _scrollController = ScrollController();
-  String selectedFilter = 'all';
 
   final DateTime today = DateTime(2025, 9, 11); // Based on image
 
@@ -37,101 +35,89 @@ class _TodosPageState extends State<TodosPage> {
   }
 
   Future<void> fetchToDos({int page = 1}) async {
-    if (page == 1) {
-      setState(() => isLoadingTodos = true);
-    } else {
-      setState(() => isLoadingMore = true);
-    }
-
-    try {
-      final response = await GetIt.I<ApiClient>().getToDo(page: page);
-      if (response['statusCode'] == 200) {
-        final newTodos = List<Map<String, dynamic>>.from(response['data']['data']);
-        setState(() {
-          if (page == 1) {
-            todos = newTodos;
-          } else {
-            todos.addAll(newTodos);
-          }
-          hasMore = newTodos.isNotEmpty;
-          currentPage = page;
-          _filterTodos();
-        });
-      } else {
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(content: Text('Failed to fetch todos: ${response['message'] ?? 'Unknown error'}')),
-        // );
-      }
-    } catch (e) {
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text('Error fetching todos: $e')),
-      // );
-    } finally {
-      setState(() {
-        isLoadingTodos = false;
-        isLoadingMore = false;
-      });
-    }
+  if (page == 1) {
+    setState(() => isLoadingTodos = true);
+  } else {
+    setState(() => isLoadingMore = true);
   }
 
-  void _filterTodos() {
-    List<Map<String, dynamic>> filtered = todos;
-    if (selectedFilter == 'open') {
-      filtered = todos.where((t) => t['status'] == 'pending').toList();
-    } else if (selectedFilter == 'close') {
-      filtered = todos.where((t) => t['status'] == 'completed').toList();
-    } else if (selectedFilter == 'archived') {
-      filtered = todos.where((t) => t['status'] == 'archived').toList();
+  try {
+    final response = await GetIt.I<ApiClient>().getToDo(page: page);
+
+    if (response['statusCode'] == 200) {
+      final newTodos = List<Map<String, dynamic>>.from(
+        response['data']['data'],
+      );
+
+      setState(() {
+        if (page == 1) {
+          todos = newTodos;
+        } else {
+          todos.addAll(newTodos);
+        }
+
+        // ❌ Your API has no pagination meta
+        // So disable infinite scroll
+        hasMore = false;
+
+        currentPage = page;
+      });
+    } else {
+      _showSnackBar(
+        'Failed to fetch todos: ${response['message'] ?? 'Unknown error'}',
+      );
     }
-    // Filter for today's date if needed, but image shows all
+  } catch (e) {
+    _showSnackBar('Error fetching todos: $e');
+  } finally {
     setState(() {
-      filteredTodos = filtered;
+      isLoadingTodos = false;
+      isLoadingMore = false;
     });
+  }
+}
+
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> updateToDo(Map<String, dynamic> todo) async {
     try {
+      final currentStatus = (todo['status']?.toString().toLowerCase() ?? '');
+      final newStatus = currentStatus == 'completed' ? 'pending' : 'completed';
+
       final payload = GetIt.I<ApiClient>().prepareUpdateToDoPayload(
         todo['ID'],
         title: todo['title'],
         description: todo['description'],
-        status: todo['status'] == 'completed' ? 'pending' : 'completed',
+        status: newStatus,
         reminder: todo['reminder'] ?? false,
         reminder_time: todo['reminder_time'],
       );
+
       final response = await GetIt.I<ApiClient>().updateToDo(payload);
       if (response['statusCode'] == 200) {
         await fetchToDos(page: 1);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('To-Do updated successfully')),
-        );
+        _showSnackBar('To-Do updated successfully');
       } else {
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(content: Text('Failed to update To-Do: ${response['message'] ?? 'Unknown error'}')),
-        // );
+        _showSnackBar(
+          'Failed to update: ${response['message'] ?? 'Unknown error'}',
+        );
       }
     } catch (e) {
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text('Error updating To-Do: $e')),
-      // );
+      _showSnackBar('Error updating To-Do: $e');
     }
   }
 
-  void _onFilterChanged(String filter) {
-    setState(() {
-      selectedFilter = filter;
-    });
-    _filterTodos();
-  }
-
-  void _onNewTask() {
-    // Navigate to add task
-    context.go('/add-task');
-  }
+ 
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200 &&
+            _scrollController.position.maxScrollExtent - 200 &&
         !isLoadingMore &&
         hasMore) {
       fetchToDos(page: currentPage + 1);
@@ -140,18 +126,13 @@ class _TodosPageState extends State<TodosPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalCount = todos.length;
-    final openCount = todos.where((t) => t['status'] == 'pending').length;
-    final closeCount = todos.where((t) => t['status'] == 'completed').length;
-    final archivedCount = todos.where((t) => t['status'] == 'archived').length;
-
     final dateStr = DateFormat('EEEE, MMMM d, yyyy').format(today);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Background color
+          // Background
           Container(color: const Color(0xFF111827)),
           // Gradient overlay
           Container(
@@ -166,20 +147,25 @@ class _TodosPageState extends State<TodosPage> {
           // Main content
           SafeArea(
             child: isLoadingTodos
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
                 : Column(
                     children: [
-                      // Custom Header with Back Button
+                      // Header
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             GestureDetector(
                               onTap: () => context.push('/other'),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF111827).withOpacity(0.8),
+                                  color: const Color(
+                                    0xFF111827,
+                                  ).withOpacity(0.8),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: Colors.white.withOpacity(0.1),
@@ -194,7 +180,7 @@ class _TodosPageState extends State<TodosPage> {
                             ),
                             const SizedBox(width: 12),
                             const Text(
-                              'To-Do',
+                              'Todo List',
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -202,97 +188,73 @@ class _TodosPageState extends State<TodosPage> {
                               ),
                             ),
                             const Spacer(),
-                          ],
-                        ),
-                      ),
-                      // Subtitle
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: const Text(
-                          'Manage personal To-Dos',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromRGBO(189, 189, 189, 1),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Today's tasks header
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "Today's Task",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                Text(
-                                  dateStr,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color.fromRGBO(189, 189, 189, 1),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Spacer(),
-                            
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Filter chips
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            _buildFilterChip('all', totalCount, selectedFilter == 'all'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('open', openCount, selectedFilter == 'open'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('close', closeCount, selectedFilter == 'close'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('archived', archivedCount, selectedFilter == 'archived'),
+                            // (Optional) Add Button or Action Icon can go here later
                           ],
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Todos List
                       Expanded(
-                        child: filteredTodos.isEmpty
+                        child: todos.isEmpty
                             ? const Center(
                                 child: Text(
                                   'No to-dos available',
-                                  style: TextStyle(fontSize: 16, color: Colors.white),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               )
                             : ListView.separated(
                                 controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: filteredTodos.length + (isLoadingMore ? 1 : 0),
-                                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                itemCount:
+                                    todos.length + (isLoadingMore ? 1 : 0),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
-                                  if (index == filteredTodos.length) {
-                                    return const Center(child: CircularProgressIndicator(color: Color(0xFF2A57E8)));
+                                  if (index == todos.length) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Color(0xFF2A57E8),
+                                      ),
+                                    );
                                   }
-                                  final todo = filteredTodos[index];
-                                  final isCompleted = todo['status'] == 'completed';
-                                  final checkboxColor = isCompleted ? Colors.white.withOpacity(0.5) : const Color(0xFF2A57E8);
-                                  final textColor = isCompleted ? Colors.white.withOpacity(0.5) : Colors.white;
+
+                                  final todo = todos[index];
+                                  final String status =
+                                      (todo['status']
+                                          ?.toString()
+                                          .toLowerCase() ??
+                                      '');
+                                  final bool isCompleted =
+                                      status == 'completed';
+
+                                  final Color checkboxColor = isCompleted
+                                      ? Colors.white.withOpacity(0.5)
+                                      : const Color(0xFF2A57E8);
+                                  final Color textColor = isCompleted
+                                      ? Colors.white.withOpacity(0.5)
+                                      : Colors.white;
+                                  final Color descColor = const Color.fromRGBO(
+                                    189,
+                                    189,
+                                    189,
+                                    1,
+                                  );
 
                                   return Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2D4A6F).withOpacity(0.6),
+                                      color: const Color(
+                                        0xFF2D4A6F,
+                                      ).withOpacity(0.6),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.1),
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
@@ -304,8 +266,12 @@ class _TodosPageState extends State<TodosPage> {
                                             height: 20,
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: checkboxColor),
-                                              color: isCompleted ? checkboxColor : Colors.transparent,
+                                              border: Border.all(
+                                                color: checkboxColor,
+                                              ),
+                                              color: isCompleted
+                                                  ? checkboxColor
+                                                  : Colors.transparent,
                                             ),
                                             child: isCompleted
                                                 ? const Icon(
@@ -320,44 +286,68 @@ class _TodosPageState extends State<TodosPage> {
                                         // Content
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
+                                              // Title with strikethrough
                                               Text(
-                                                todo['title'] ?? 'Untitled Task',
+                                                todo['title'] ??
+                                                    'Untitled Task',
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
                                                   color: textColor,
+                                                  decoration: isCompleted
+                                                      ? TextDecoration
+                                                            .lineThrough
+                                                      : TextDecoration.none,
+                                                  decorationColor: textColor,
+                                                  decorationThickness: 1.5,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
+                                              // Description with strikethrough
                                               Text(
                                                 todo['description'] ?? '',
                                                 style: TextStyle(
                                                   fontSize: 14,
-                                                  color: Color.fromRGBO(189, 189, 189, 1),
+                                                  color: descColor,
+                                                  decoration: isCompleted
+                                                      ? TextDecoration
+                                                            .lineThrough
+                                                      : TextDecoration.none,
+                                                  decorationColor: descColor,
+                                                  decorationThickness: 1.5,
                                                 ),
                                               ),
                                               const SizedBox(height: 8),
+                                              // Due Date Chip
                                               Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFF2A57E8).withOpacity(0.2),
-                                                      borderRadius: BorderRadius.circular(12),
+                                                      color: const Color(
+                                                        0xFF2A57E8,
+                                                      ).withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
                                                     ),
                                                     child: Text(
-                                                      'Today, 20 Sep 2025', // From image, dynamic based on todo['due_date']
-                                                      style: TextStyle(
+                                                      _formatDueDate(todo),
+                                                      style: const TextStyle(
                                                         fontSize: 12,
-                                                        color: const Color(0xFF2A57E8),
+                                                        color: Color.fromARGB(255, 255, 255, 255),
                                                       ),
                                                     ),
                                                   ),
                                                   const Spacer(),
-                                                  // Icons
-                                                  
                                                 ],
                                               ),
                                             ],
@@ -377,40 +367,16 @@ class _TodosPageState extends State<TodosPage> {
     );
   }
 
-  Widget _buildFilterChip(String filter, int count, bool isSelected) {
-    return GestureDetector(
-      onTap: () => _onFilterChanged(filter),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2A57E8).withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF2A57E8) : Colors.white.withOpacity(0.1),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              filter.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? const Color(0xFF2A57E8) : Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '($count)',
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? const Color(0xFF2A57E8) : Colors.white.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Format CreatedAt as fallback for due date
+  String _formatDueDate(Map<String, dynamic> todo) {
+    final createdAt = todo['CreatedAt'];
+    if (createdAt == null || createdAt is! String) return 'No date';
+
+    try {
+      final date = DateTime.parse(createdAt).toLocal();
+      return DateFormat('MMM d, yyyy').format(date);
+    } catch (e) {
+      return 'No date';
+    }
   }
 }

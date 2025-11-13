@@ -83,24 +83,11 @@ late int _currentUserId;
     super.initState();
     _initializeGoogleSignIn();
 
-  _loadIntegrationStatus();
   _loadCurrentUser();
+  _loadIntegrationStatus();
   }
 
-  Future<void> _loadCurrentUser() async {
-  try {
-    final result = await getIt<ApiClient>().getCurrentUser();
-    if (result['statusCode'] == 200) {
-      final user = result['data']['data'] as Map<String, dynamic>;
-      setState(() => _currentUserId = user['ID'] as int);
-    }
-  } catch (e) {
-    debugPrint("Error fetching current user: $e");
-  }
-}
-
-
- Future<void> _loadIntegrationStatus() async {
+  Future<void> _loadIntegrationStatus() async {
   try {
     final result = await getIt<ApiClient>().getIntegrationStatus();
 
@@ -129,6 +116,19 @@ late int _currentUserId;
   }
 }
 
+
+
+  Future<void> _loadCurrentUser() async {
+  try {
+    final result = await getIt<ApiClient>().getCurrentUser();
+    if (result['statusCode'] == 200) {
+      final user = result['data']['data'] as Map<String, dynamic>;
+      setState(() => _currentUserId = user['ID'] as int);
+    }
+  } catch (e) {
+    debugPrint("Error fetching current user: $e");
+  }
+}
 
 void _showFirefliesKeyPopup() {
   final TextEditingController keyController = TextEditingController();
@@ -624,7 +624,7 @@ Future<void> _saveFirefliesKey(String apiKey) async {
                           children: [
                             GestureDetector(
                               onTap: () => context.push('/other'),
-                              child: Container(
+                              child: Container( 
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(

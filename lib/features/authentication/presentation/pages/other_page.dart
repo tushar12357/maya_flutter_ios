@@ -156,9 +156,9 @@ class _OtherPageState extends State<OtherPage> {
   // PROFILE SECTION – uses real user data
   // --------------------------------------------------------------
   Widget _buildProfileSection(BuildContext context) {
-    final name = _user?.fullName ?? 'Kaarthi';
-    final email = _user?.email ?? 'kaarthi@example.com';
-    final avatarLetter = _user?.initials ?? 'K';
+    final name = _user?.fullName ;
+    final email = _user?.email;
+    final avatarLetter = _user?.initials;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -183,7 +183,7 @@ class _OtherPageState extends State<OtherPage> {
             ),
             child: Center(
               child: Text(
-                avatarLetter,
+                avatarLetter ?? '',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -198,7 +198,7 @@ class _OtherPageState extends State<OtherPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  name ?? '',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -207,7 +207,7 @@ class _OtherPageState extends State<OtherPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  email,
+                  email ?? '',
                   style: const TextStyle(
                     fontSize: 14,
                     color: Color.fromRGBO(189, 189, 189, 1),

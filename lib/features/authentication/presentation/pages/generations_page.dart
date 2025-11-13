@@ -206,26 +206,69 @@ class _GenerationsPageState extends State<GenerationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
+     body: Stack(
+  children: [
+    Container(color: const Color(0xFF111827)),
+    Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x992A57E8), Colors.transparent],
+        ),
+      ),
+    ),
+    SafeArea(
+      child: Column(
         children: [
-          Container(color: const Color(0xFF111827)),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x992A57E8), Colors.transparent],
-              ),
+          // ---------------- HEADER ALWAYS VISIBLE ----------------
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => context.push('/other'),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827).withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Generations',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const Spacer(),
+              ],
             ),
           ),
-          SafeArea(
-            child: FutureBuilder<Map<String, dynamic>>(
+
+          // ---------------- CONTENT (CAN BE EMPTY) ----------------
+          Expanded(
+            child: FutureBuilder(
               future: _generationsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator(color: Colors.white));
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
                 }
+
                 if (!snapshot.hasData ||
                     snapshot.data!['data'] == null ||
                     snapshot.data!['data']['success'] != true) {
@@ -235,218 +278,188 @@ class _GenerationsPageState extends State<GenerationsPage> {
                 final List<dynamic> generations =
                     List.from(snapshot.data!['data']['data'] ?? []);
 
-                // ---- sorting -------------------------------------------------
-                generations.sort((a, b) {
-                  final prioA = _getStatusPriority(a['status'] as String?);
-                  final prioB = _getStatusPriority(b['status'] as String?);
-                  if (prioA != prioB) return prioB.compareTo(prioA);
+                if (generations.isEmpty) return _emptyView();
 
-                  final dA = DateTime.tryParse(a['created_at'] ?? '') ??
-                      DateTime(1900);
-                  final dB = DateTime.tryParse(b['created_at'] ?? '') ??
-                      DateTime(1900);
-                  return dB.compareTo(dA);
-                });
-
-                // ---------------------------------------------------------------
-                return Column(
-                  children: [
-                    // ---- Header ------------------------------------------------
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => context.push('/other'),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color:
-                                    const Color(0xFF111827).withOpacity(0.8),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: Colors.white.withOpacity(0.1)),
-                              ),
-                              child: const Icon(Icons.arrow_back,
-                                  color: Colors.white, size: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text('Generations',
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
-                          const Spacer(),
-                        ],
-                      ),
-                    ),
-
-                    // ---- List --------------------------------------------------
-                    Expanded(
-                      child: generations.isEmpty
-                          ? _emptyView()
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('AI Generations',
-                                      style: TextStyle(
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white)),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                      'View AI history (${generations.length})',
-                                      style: const TextStyle(
-                                          fontSize: 15,
-                                          color: Color(0xFF9CA3AF))),
-                                  const SizedBox(height: 20),
-
-                                  ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: generations.length,
-                                    itemBuilder: (context, index) {
-                                      final g = generations[index];
-
-                                      final id = g['id']?.toString() ?? '';
-                                      final title =
-                                          g['input']?['message'] ?? 'Untitled';
-                                      final type = g['type'] ?? 'unknown';
-                                      final status =
-                                          g['status'] ?? 'unknown';
-                                      final createdAt = _formatDate(
-                                          g['created_at'] ?? '');
-                                      final outputUrl = g['outputUrl'] as String?;
-
-                                      return Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF2D4A6F)
-                                              .withOpacity(0.6),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                          border: Border.all(
-                                              color:
-                                                  Colors.white.withOpacity(0.1)),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            // ---- Title & Star -------------------------
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(title,
-                                                      style: const TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Colors.white),
-                                                      overflow:
-                                                          TextOverflow.ellipsis),
-                                                ),
-                                                const Icon(Icons.star_border,
-                                                    color: Color(0xFF2A57E8),
-                                                    size: 20),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6),
-
-                                            // ---- Type ---------------------------------
-                                            Text('Type: $type',
-                                                style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: Color(0xFF9CA3AF))),
-                                            const SizedBox(height: 6),
-
-                                            // ---- Status Chip -------------------------
-                                            Chip(
-                                              label: Text(status.toUpperCase(),
-                                                  style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.white)),
-                                              backgroundColor:
-                                                  _getStatusColor(status),
-                                            ),
-                                            const SizedBox(height: 6),
-
-                                            // ---- Created At -------------------------
-                                            Text('Created: $createdAt',
-                                                style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFF9CA3AF))),
-                                            const SizedBox(height: 8),
-
-                                            // ---- OUTPUT URL (always shown) ----------
-                                            if (outputUrl != null &&
-                                                outputUrl.isNotEmpty) ...[
-                                              const Text('Output',
-                                                  style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Colors.white70)),
-                                              const SizedBox(height: 6),
-                                              AudioPlayerWidget(url: outputUrl),
-                                              const SizedBox(height: 12),
-                                            ],
-
-                                            // ---- Action buttons (only for pending) --
-                                            if (status == 'approval_pending') ...[
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  _actionBtn(
-                                                      'Approve',
-                                                      Colors.green,
-                                                      () => _updateStatus(
-                                                          id, 'approve')),
-                                                  _actionBtn(
-                                                      'Reject',
-                                                      Colors.red,
-                                                      () => _updateStatus(
-                                                          id, 'reject')),
-                                                  _actionBtn(
-                                                      'Regenerate',
-                                                      const Color(0xFF2A57E8),
-                                                      () => _updateStatus(
-                                                          id, 'regenerate')),
-                                                ],
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ],
-                );
+                // your list UI here...
+                return _buildGenerationsList(generations);
               },
             ),
           ),
         ],
       ),
+    ),
+  ],
+)
+
+   
     );
   }
+
+
+Widget _buildGenerationsList(List<dynamic> generations) {
+  // ---- sorting -------------------------------------------------
+  generations.sort((a, b) {
+    final prioA = _getStatusPriority(a['status'] as String?);
+    final prioB = _getStatusPriority(b['status'] as String?);
+    if (prioA != prioB) return prioB.compareTo(prioA);
+
+    final dA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1900);
+    final dB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1900);
+    return dB.compareTo(dA);
+  });
+
+  return SingleChildScrollView(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'AI Generations',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'View AI history (${generations.length})',
+          style: const TextStyle(
+            fontSize: 15,
+            color: Color(0xFF9CA3AF),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: generations.length,
+          itemBuilder: (context, index) {
+            final g = generations[index];
+
+            final id = g['id']?.toString() ?? '';
+            final title = g['input']?['message'] ?? 'Untitled';
+            final type = g['type'] ?? 'unknown';
+            final status = g['status'] ?? 'unknown';
+            final createdAt = _formatDate(g['created_at'] ?? '');
+            final outputUrl = g['outputUrl'] as String?;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D4A6F).withOpacity(0.6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ---- Title & Star -------------------------
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.star_border,
+                        color: Color(0xFF2A57E8),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // ---- Type & Created At --------------------
+                  Text(
+                    'Type: $type',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  Chip(
+                    label: Text(
+                      status.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: _getStatusColor(status),
+                  ),
+
+                  const SizedBox(height: 6),
+                  Text(
+                    'Created: $createdAt',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ---- Output / Audio -----------------------
+                  if (outputUrl != null && outputUrl.isNotEmpty) ...[
+                    const Text(
+                      'Output',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    AudioPlayerWidget(url: outputUrl),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // ---- Buttons for pending status -----------
+                  if (status == 'approval_pending')
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _actionBtn(
+                          'Approve',
+                          Colors.green,
+                          () => _updateStatus(id, 'approve'),
+                        ),
+                        _actionBtn(
+                          'Reject',
+                          Colors.red,
+                          () => _updateStatus(id, 'reject'),
+                        ),
+                        _actionBtn(
+                          'Regenerate',
+                          const Color(0xFF2A57E8),
+                          () => _updateStatus(id, 'regenerate'),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
 
   // -----------------------------------------------------------------
   //  Re-usable UI helpers

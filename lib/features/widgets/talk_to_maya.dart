@@ -99,32 +99,183 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _onStatusChange() {
-    if (!mounted) return;
+  void _triggerGlobalSessionReset() {
+  if (_ignoreTranscripts) return;
+  _ignoreTranscripts = true;
 
-    final st = _session!.status;
+  print('🔥 Performing GLOBAL RESET');
+
+  // do NOT remove listeners before receiving disconnecting
+  try {
+    _session?.micMuted = true;
+    _session?.speakerMuted = true;
+  } catch (_) {}
+
+  // stop animations
+  _pulseController.stop();
+  _speakingPulseController.stop();
+  _orbController.stop();
+
+  // end session
+  try {
+    _session?.leaveCall(); // no await
+  } catch (_) {}
+
+  // reset shared state
+  _shared.resetSession();
+
+  // instant UI reset
+  if (mounted) {
     setState(() {
-      _status = _mapStatusToSpeech(st);
-      _isListening = st == UltravoxSessionStatus.listening ||
-          st == UltravoxSessionStatus.speaking ||
-          st == UltravoxSessionStatus.thinking;
+      _conversation.clear();
+      _currentTranscriptChunk = '';
+      _status = "Talk To Maya";
+      _isListening = false;
+      _isConnecting = false;
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
     });
-
-    if (st == UltravoxSessionStatus.disconnecting || st == UltravoxSessionStatus.disconnected) {
-      _ignoreTranscripts = true;
-    }
-
-    if (st == UltravoxSessionStatus.speaking) {
-      _pulseController.stop();
-      _speakingPulseController.repeat();
-    } else if (st == UltravoxSessionStatus.listening) {
-      _speakingPulseController.stop();
-      _pulseController.repeat();
-    } else {
-      _pulseController.stop();
-      _speakingPulseController.stop();
-    }
   }
+
+  // prepare a fresh session
+  _shared.init();
+  _session = _shared.session;
+
+  // rebind listeners to new session
+  _session?.statusNotifier.addListener(_onStatusChange);
+  _session?.dataMessageNotifier.addListener(_onDataMessage);
+  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+  print('✅ Global reset completed (disconnecting).');
+}
+
+
+void _performGlobalReset() {
+  if (_ignoreTranscripts) return;
+  _ignoreTranscripts = true;
+
+  print('🔥 GLOBAL RESET STARTED');
+
+  // Immediately silence mic/speaker to prevent noise during tear-down
+  try {
+    _session?.micMuted = true;
+    _session?.speakerMuted = true;
+  } catch (_) {}
+
+  // Stop animations
+  _pulseController.stop();
+  _speakingPulseController.stop();
+  _orbController.stop();
+
+  // Kill the session immediately (no await needed)
+  try {
+    _session?.leaveCall();
+  } catch (_) {}
+
+  // Wipe shared session state
+  _shared.resetSession();
+
+  // Reset UI immediately
+  if (mounted) {
+    setState(() {
+      _conversation.clear();
+      _currentTranscriptChunk = '';
+      _status = "Talk To Maya";
+      _isListening = false;
+      _isConnecting = false;
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
+    });
+  }
+
+  // Create a new blank session for next time
+  _shared.init();
+  _session = _shared.session;
+
+  // Rebind listeners to the new session
+  _session?.statusNotifier.addListener(_onStatusChange);
+  _session?.dataMessageNotifier.addListener(_onDataMessage);
+  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+  print('✅ GLOBAL RESET COMPLETE');
+}
+
+
+void _onStatusChange() {
+  if (!mounted || _session == null) return;
+
+  final st = _session!.status;
+  print('⚡ STATUS: $st');
+
+  // === UNIVERSAL GLOBAL RESET TRIGGER ===
+  if (st == UltravoxSessionStatus.disconnecting) {
+    print('🚨 disconnecting detected — performing full reset');
+    _performGlobalReset();
+    return;
+  }
+
+  // Continue normal UI updates
+  setState(() {
+    _status = _mapStatusToSpeech(st);
+    _isListening = st == UltravoxSessionStatus.listening ||
+        st == UltravoxSessionStatus.speaking ||
+        st == UltravoxSessionStatus.thinking;
+  });
+
+  if (st == UltravoxSessionStatus.speaking) {
+    _pulseController.stop();
+    _speakingPulseController.repeat();
+  } else if (st == UltravoxSessionStatus.listening) {
+    _speakingPulseController.stop();
+    _pulseController.repeat();
+  } else {
+    _pulseController.stop();
+    _speakingPulseController.stop();
+  }
+}
+
+void _handleGlobalSessionEnd() {
+  if (_ignoreTranscripts) return;
+  _ignoreTranscripts = true;
+
+  // Ensure no further callbacks fire
+  try {
+    _session?.statusNotifier.removeListener(_onStatusChange);
+    _session?.dataMessageNotifier.removeListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+  } catch (_) {}
+
+  // Reset session
+  try {
+    _session?.leaveCall();
+  } catch (_) {}
+
+  _shared.resetSession(); // fire-and-forget
+
+  // Reset UI instantly
+  if (mounted) {
+    setState(() {
+      _conversation.clear();
+      _currentTranscriptChunk = '';
+      _status = 'Talk To Maya';
+      _isListening = false;
+      _isConnecting = false;
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
+    });
+  }
+
+  // Fresh session ready for next time
+  _shared.init();
+  _session = _shared.session;
+
+  _session?.statusNotifier.addListener(_onStatusChange);
+  _session?.dataMessageNotifier.addListener(_onDataMessage);
+  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+  debugPrint('💥 Global session reset triggered due to disconnect.');
+}
+
 
   void _onDataMessage() {
     if (!mounted) return;
@@ -194,14 +345,72 @@ void _onDebugMessage() {
     }
 
     // 2️⃣ Detect hangUp tool call — end immediately
-    if (message.contains('"name":"hangUp"') ||
-        message.contains('"FunctionCall(name=\'hangUp\'') ||
-        (message.contains('"tool_calls":') && message.contains('"hangUp"'))) {
-      debugPrint('🔴 HangUp tool call detected — immediately ending session.');
-      _forceEndSession();
-    }
+   // 2️⃣ Detect hangUp tool call — end immediately
+if (message.contains('"name":"hangUp"') ||
+    message.contains('"FunctionCall(name=\'hangUp\'') ||
+    (message.contains('"tool_calls":') && message.contains('"hangUp"'))) {
+
+  debugPrint('🔴 HangUp tool call detected — forcing FULL reset now.');
+
+  // Kill everything right now, BEFORE Ultravox changes status
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _performImmediateFullReset();
+  });
+
+  return;
+}
+
   }
 }
+
+void _performImmediateFullReset() {
+  if (!mounted) return;
+
+  // Stop listeners BEFORE Ultravox tears the session down
+  try {
+    _session?.statusNotifier.removeListener(_onStatusChange);
+    _session?.dataMessageNotifier.removeListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+  } catch (_) {}
+
+  // Stop audio + animations
+  _pulseController.stop();
+  _speakingPulseController.stop();
+  _orbController.stop();
+
+  // Kill session immediately (no awaits)
+  try {
+    _session?.leaveCall();
+  } catch (_) {}
+
+  // Reset shared
+  try {
+    _shared.resetSession();
+  } catch (_) {}
+
+  // Reset UI
+  setState(() {
+    _conversation.clear();
+    _currentTranscriptChunk = '';
+    _status = 'Talk To Maya';
+    _isListening = false;
+    _isConnecting = false;
+    _isMicMuted = false;
+    _isSpeakerMuted = false;
+  });
+
+  // Create a new blank session
+  _shared.init();
+  _session = _shared.session;
+
+  // Rebind listeners (fresh)
+  _session?.statusNotifier.addListener(_onStatusChange);
+  _session?.dataMessageNotifier.addListener(_onDataMessage);
+  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+  debugPrint('✅ IMMEDIATE reset done after hangUp tool call.');
+}
+
 
 void _forceEndSession() {
   if (_ignoreTranscripts) return;

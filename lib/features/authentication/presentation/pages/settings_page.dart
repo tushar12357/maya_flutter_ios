@@ -331,15 +331,21 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final resp = await _apiClient.getCurrentUser();
       final data =
-          resp['data']['notification_preference'] as Map<String, dynamic>;
+          resp['data']['data']['notification_preference'] as Map<String, dynamic>?;
+
+      if (data == null) return;
+
       setState(() {
-        _emailNotifications = data['email_notifications'] ?? true;
-        _pushNotifications = data['push_notifications'] ?? true;
-        _smsNotifications = data['sms_notifications'] ?? true;
-        _deviceNotifications = data['device_notifications'] ?? true;
-        _callNotifications = data['call_notifications'] ?? true;
+        _emailNotifications = (data['email_notifications'] as bool?)! ;
+        _pushNotifications = (data['push_notifications'] as bool?)! ;
+        _smsNotifications = (data['sms_notifications'] as bool?)! ;
+        _deviceNotifications = (data['device_notifications'] as bool?)! ;
+        _callNotifications = (data['call_notifications'] as bool?)! ;
       });
-    } catch (_) {}
+    } catch (e) {
+      print('Error fetching notification prefs: $e');
+      // Optionally show snackbar
+    }
   }
 
   Future<void> _setVolume(double v) async =>

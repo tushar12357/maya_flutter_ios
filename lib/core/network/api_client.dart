@@ -140,7 +140,7 @@ class ApiClient {
   }
 
     Future<Map<String, dynamic>> getIntegrationStatus() async {
-    final response = await _protectedDio.get('/auth/integration/status');
+    final response = await _protectedDio.get('/auth/integrations/status');
     print('getCurrentUser response: ${response.data}');
     print('getCurrentUser statusCode: ${response.statusCode}');
     return {'statusCode': response.statusCode, 'data': response.data};
