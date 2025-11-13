@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/core/services/mic_service.dart';
 import 'package:ultravox_client/ultravox_client.dart';
-import 'package:audioplayers/audioplayers.dart'; // 👈 added
+import 'package:audioplayers/audioplayers.dart';
 
 class TalkToMaya extends StatefulWidget {
   const TalkToMaya({super.key});
@@ -13,23 +13,34 @@ class TalkToMaya extends StatefulWidget {
   State<TalkToMaya> createState() => _TalkToMayaState();
 }
 
-class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
+class _TalkToMayaState extends State<TalkToMaya>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  // === Core State ===
   bool _isListening = false;
   bool _isConnecting = false;
   bool _isMicMuted = false;
   bool _isSpeakerMuted = false;
   String _currentTranscriptChunk = '';
   String _status = 'Talk To Maya';
-  bool _ignoreTranscripts = false;
 
+  // === Guards & Flags ===
+  bool _ignoreTranscripts = false;
+  bool _isResetting = false;
+  String _lastSentText = ''; // To prevent double typed messages
+
+  // === Services & Session ===
   final ThunderSessionService _shared = ThunderSessionService();
   UltravoxSession? _session;
 
+  // === UI Controllers ===
   final ScrollController _scrollController = ScrollController();
   final ApiClient _apiClient = GetIt.instance<ApiClient>();
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlayingTypingSound = false;
 
+  // === Animations ===
   late AnimationController _pulseController;
   late AnimationController _orbController;
   late AnimationController _speakingPulseController;
@@ -37,32 +48,25 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
   late Animation<double> _orbScaleAnimation;
   late Animation<double> _speakingPulseAnimation;
 
-  // Add AudioPlayer for typing sounds
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isPlayingTypingSound = false; // Prevent overlapping sounds
-
   List<Map<String, dynamic>> _conversation = [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _shared.init();
     _session = _shared.session;
 
-    // Restore persistent UI state
+    // Restore persistent state
     _isMicMuted = _shared.isMicMuted;
     _isSpeakerMuted = _shared.isSpeakerMuted;
     _currentTranscriptChunk = _shared.currentTranscript;
     _conversation = List.from(_shared.conversation);
 
-    // Bind listeners (safe if null)
-    _session?.statusNotifier.addListener(_onStatusChange);
-    _session?.dataMessageNotifier.addListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-    _audioPlayer.setReleaseMode(ReleaseMode.stop);
-
-    _checkInitialPermission();
     _setupAnimations();
+    _setupListeners();
+    _checkInitialPermission();
   }
 
   void _setupAnimations() {
@@ -75,21 +79,29 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
         .animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
 
     _speakingPulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _speakingPulseAnimation =
-        Tween<double>(begin: 1.0, end: 1.1).animate(CurvedAnimation(parent: _speakingPulseController, curve: Curves.easeInOut));
+    _speakingPulseAnimation = Tween<double>(begin: 1.0, end: 1.1)
+        .animate(CurvedAnimation(parent: _speakingPulseController, curve: Curves.easeInOut));
   }
 
-  @override
-  void dispose() {
-    // Unbind listeners if session exists
+  void _setupListeners() {
+    _session?.statusNotifier.addListener(_onStatusChange);
+    _session?.dataMessageNotifier.addListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+  }
+
+  void _removeListeners() {
     try {
       _session?.statusNotifier.removeListener(_onStatusChange);
       _session?.dataMessageNotifier.removeListener(_onDataMessage);
       _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
     } catch (_) {}
+  }
 
-    _audioPlayer.dispose(); // Dispose audio player
-
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _removeListeners();
+    _audioPlayer.dispose();
     _scrollController.dispose();
     _textController.dispose();
     _focusNode.dispose();
@@ -99,193 +111,114 @@ class _TalkToMayaState extends State<TalkToMaya> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _triggerGlobalSessionReset() {
-  if (_ignoreTranscripts) return;
-  _ignoreTranscripts = true;
+  // ===================================================================
+  // ONE AND ONLY RESET FUNCTION — SOLVES ALL RACE CONDITIONS
+  // ===================================================================
+  Future<void> _resetEverything({bool fromHangup = false}) async {
+    if (_isResetting) return;
+    _isResetting = true;
+    _ignoreTranscripts = true;
 
-  print('🔥 Performing GLOBAL RESET');
+    print('FULL RESET STARTED (${fromHangup ? "hangUp tool" : "normal"})');
 
-  // do NOT remove listeners before receiving disconnecting
-  try {
-    _session?.micMuted = true;
-    _session?.speakerMuted = true;
-  } catch (_) {}
-
-  // stop animations
-  _pulseController.stop();
-  _speakingPulseController.stop();
-  _orbController.stop();
-
-  // end session
-  try {
-    _session?.leaveCall(); // no await
-  } catch (_) {}
-
-  // reset shared state
-  _shared.resetSession();
-
-  // instant UI reset
-  if (mounted) {
-    setState(() {
-      _conversation.clear();
-      _currentTranscriptChunk = '';
-      _status = "Talk To Maya";
-      _isListening = false;
-      _isConnecting = false;
-      _isMicMuted = false;
-      _isSpeakerMuted = false;
-    });
-  }
-
-  // prepare a fresh session
-  _shared.init();
-  _session = _shared.session;
-
-  // rebind listeners to new session
-  _session?.statusNotifier.addListener(_onStatusChange);
-  _session?.dataMessageNotifier.addListener(_onDataMessage);
-  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-  print('✅ Global reset completed (disconnecting).');
-}
-
-
-void _performGlobalReset() {
-  if (_ignoreTranscripts) return;
-  _ignoreTranscripts = true;
-
-  print('🔥 GLOBAL RESET STARTED');
-
-  // Immediately silence mic/speaker to prevent noise during tear-down
-  try {
-    _session?.micMuted = true;
-    _session?.speakerMuted = true;
-  } catch (_) {}
-
-  // Stop animations
-  _pulseController.stop();
-  _speakingPulseController.stop();
-  _orbController.stop();
-
-  // Kill the session immediately (no await needed)
-  try {
-    _session?.leaveCall();
-  } catch (_) {}
-
-  // Wipe shared session state
-  _shared.resetSession();
-
-  // Reset UI immediately
-  if (mounted) {
-    setState(() {
-      _conversation.clear();
-      _currentTranscriptChunk = '';
-      _status = "Talk To Maya";
-      _isListening = false;
-      _isConnecting = false;
-      _isMicMuted = false;
-      _isSpeakerMuted = false;
-    });
-  }
-
-  // Create a new blank session for next time
-  _shared.init();
-  _session = _shared.session;
-
-  // Rebind listeners to the new session
-  _session?.statusNotifier.addListener(_onStatusChange);
-  _session?.dataMessageNotifier.addListener(_onDataMessage);
-  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-  print('✅ GLOBAL RESET COMPLETE');
-}
-
-
-void _onStatusChange() {
-  if (!mounted || _session == null) return;
-
-  final st = _session!.status;
-  print('⚡ STATUS: $st');
-
-  // === UNIVERSAL GLOBAL RESET TRIGGER ===
-  if (st == UltravoxSessionStatus.disconnecting) {
-    print('🚨 disconnecting detected — performing full reset');
-    _performGlobalReset();
-    return;
-  }
-
-  // Continue normal UI updates
-  setState(() {
-    _status = _mapStatusToSpeech(st);
-    _isListening = st == UltravoxSessionStatus.listening ||
-        st == UltravoxSessionStatus.speaking ||
-        st == UltravoxSessionStatus.thinking;
-  });
-
-  if (st == UltravoxSessionStatus.speaking) {
-    _pulseController.stop();
-    _speakingPulseController.repeat();
-  } else if (st == UltravoxSessionStatus.listening) {
-    _speakingPulseController.stop();
-    _pulseController.repeat();
-  } else {
+    // Stop animations
     _pulseController.stop();
     _speakingPulseController.stop();
+    _orbController.stop();
+
+    // Remove listeners immediately
+    _removeListeners();
+
+    // Mute + leave call
+    try {
+      _session?.micMuted = true;
+      _session?.speakerMuted = true;
+      _session?.leaveCall();
+    } catch (_) {}
+
+    // Reset shared state
+    await _shared.resetSession();
+
+    // UI Reset
+    if (mounted) {
+      setState(() {
+        _conversation.clear();
+        _currentTranscriptChunk = '';
+        _status = 'Talk To Maya';
+        _isListening = false;
+        _isConnecting = false;
+        _isMicMuted = false;
+        _isSpeakerMuted = false;
+      });
+    }
+
+    // Fresh session
+    _shared.init();
+    _session = _shared.session;
+
+    // Re-attach listeners
+    _setupListeners();
+
+    _ignoreTranscripts = false;
+    _isResetting = false;
+    _lastSentText = '';
+
+    print('FULL RESET COMPLETE');
   }
-}
 
-void _handleGlobalSessionEnd() {
-  if (_ignoreTranscripts) return;
-  _ignoreTranscripts = true;
+  // ===================================================================
+  // Lifecycle: Handle tab close / app background
+  // ===================================================================
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      if (_shared.isSessionActive) {
+        _resetEverything();
+      }
+    }
+  }
 
-  // Ensure no further callbacks fire
-  try {
-    _session?.statusNotifier.removeListener(_onStatusChange);
-    _session?.dataMessageNotifier.removeListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
-  } catch (_) {}
+  // ===================================================================
+  // Status Handler — Only reset on disconnected
+  // ===================================================================
+  void _onStatusChange() {
+    if (!mounted || _session == null || _isResetting) return;
 
-  // Reset session
-  try {
-    _session?.leaveCall();
-  } catch (_) {}
+    final st = _session!.status;
+    print('STATUS: $st');
 
-  _shared.resetSession(); // fire-and-forget
+    // ONLY reset when fully disconnected
+    if (st == UltravoxSessionStatus.disconnected) {
+      _resetEverything();
+      return;
+    }
 
-  // Reset UI instantly
-  if (mounted) {
     setState(() {
-      _conversation.clear();
-      _currentTranscriptChunk = '';
-      _status = 'Talk To Maya';
-      _isListening = false;
-      _isConnecting = false;
-      _isMicMuted = false;
-      _isSpeakerMuted = false;
+      _status = _mapStatusToSpeech(st);
+      _isListening = st == UltravoxSessionStatus.listening ||
+          st == UltravoxSessionStatus.speaking ||
+          st == UltravoxSessionStatus.thinking;
     });
+
+    if (st == UltravoxSessionStatus.speaking) {
+      _pulseController.stop();
+      _speakingPulseController.repeat();
+    } else if (st == UltravoxSessionStatus.listening) {
+      _speakingPulseController.stop();
+      _pulseController.repeat();
+    } else {
+      _pulseController.stop();
+      _speakingPulseController.stop();
+    }
   }
 
-  // Fresh session ready for next time
-  _shared.init();
-  _session = _shared.session;
-
-  _session?.statusNotifier.addListener(_onStatusChange);
-  _session?.dataMessageNotifier.addListener(_onDataMessage);
-  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-  debugPrint('💥 Global session reset triggered due to disconnect.');
-}
-
-
+  // ===================================================================
+  // Data Message: Transcripts
+  // ===================================================================
   void _onDataMessage() {
-    if (!mounted) return;
-
-    // Gate: if we should ignore transcripts (disconnecting/disconnected)
-    final s = _session?.status;
-    if (_ignoreTranscripts || s == UltravoxSessionStatus.disconnecting || s == UltravoxSessionStatus.disconnected) {
+    if (!mounted || _ignoreTranscripts || _isResetting) {
       if (_currentTranscriptChunk.isNotEmpty) {
         setState(() => _currentTranscriptChunk = '');
-        _shared.clearTranscript();
       }
       return;
     }
@@ -295,26 +228,33 @@ void _handleGlobalSessionEnd() {
 
     final latest = transcripts.last;
 
-    // live partial chunk
+    // Live partial chunk
     if (!latest.isFinal) {
       setState(() {
         _currentTranscriptChunk = latest.text;
-        _shared.updateTranscript(latest.text);
       });
       _scrollToBottom();
       return;
     }
 
-    // final chunk -> append to conversation
-    final finalText = latest.text.trim();
-    if (finalText.isEmpty) return;
+    // Final message
+    final text = latest.text.trim();
+    if (text.isEmpty) return;
 
     final speaker = latest.speaker == Role.user ? 'user' : 'maya';
 
-    // prevent duplicates
+    // BLOCK DUPLICATE: when user types and it comes back as transcript
+    if (speaker == 'user' && text == _lastSentText) {
+      _lastSentText = '';
+      _shared.clearTranscript();
+      setState(() => _currentTranscriptChunk = '');
+      return;
+    }
+
+    // Prevent actual duplicates
     if (_conversation.isNotEmpty) {
       final last = _conversation.last;
-      if (last['type'] == speaker && last['text'] == finalText) {
+      if (last['type'] == speaker && last['text'] == text) {
         _shared.clearTranscript();
         setState(() => _currentTranscriptChunk = '');
         return;
@@ -322,278 +262,92 @@ void _handleGlobalSessionEnd() {
     }
 
     setState(() {
-      _conversation.add({'type': speaker, 'text': finalText});
-      _shared.addMessage(speaker, finalText);
+      _conversation.add({'type': speaker, 'text': text});
+      _shared.addMessage(speaker, text);
       _currentTranscriptChunk = '';
       _shared.clearTranscript();
     });
-
     _scrollToBottom();
   }
 
-void _onDebugMessage() {
-  final msg = _session!.experimentalMessageNotifier.value;
-  print('Got a debug message: ${msg.toString()}');
+  // ===================================================================
+  // Debug Message: HangUp Detection + Typing Sound
+  // ===================================================================
+  void _onDebugMessage() {
+    if (_ignoreTranscripts || _isResetting) return;
 
-  if (msg is Map<String, dynamic> && msg['type'] == 'debug') {
-    final message = msg['message'].toString();
+    final msg = _session?.experimentalMessageNotifier.value;
+    if (msg is! Map<String, dynamic>) return;
 
-    // 1️⃣ Detect search activity (for typing sounds)
-    if ((message.contains('"type": "deep_search"') || message.contains('"type": "simple_search"')) &&
+    final message = msg.toString();
+
+    // HangUp Tool Call → Immediate Reset
+    if (message.contains('hangUp') &&
+        (message.contains('tool_calls') ||
+         message.contains('FunctionCall') ||
+         message.contains('"name":"hangUp"'))) {
+      print('HANGUP TOOL CALL DETECTED → FORCING RESET');
+      _resetEverything(fromHangup: true);
+      return;
+    }
+
+    // Typing sound on search
+    if ((message.contains('deep_search') || message.contains('simple_search')) &&
         !_isPlayingTypingSound) {
       _playTypingSound();
     }
-
-    // 2️⃣ Detect hangUp tool call — end immediately
-   // 2️⃣ Detect hangUp tool call — end immediately
-if (message.contains('"name":"hangUp"') ||
-    message.contains('"FunctionCall(name=\'hangUp\'') ||
-    (message.contains('"tool_calls":') && message.contains('"hangUp"'))) {
-
-  debugPrint('🔴 HangUp tool call detected — forcing FULL reset now.');
-
-  // Kill everything right now, BEFORE Ultravox changes status
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _performImmediateFullReset();
-  });
-
-  return;
-}
-
   }
-}
 
-void _performImmediateFullReset() {
-  if (!mounted) return;
+  // ===================================================================
+  // Actions
+  // ===================================================================
+  Future<void> _onStart() async {
+    if (_shared.isSessionActive && _session?.status != UltravoxSessionStatus.disconnected) {
+      await _onStop();
+      return;
+    }
 
-  // Stop listeners BEFORE Ultravox tears the session down
-  try {
-    _session?.statusNotifier.removeListener(_onStatusChange);
-    _session?.dataMessageNotifier.removeListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
-  } catch (_) {}
+    final granted = await MicPermissionService.request(context);
+    if (!granted) return;
 
-  // Stop audio + animations
-  _pulseController.stop();
-  _speakingPulseController.stop();
-  _orbController.stop();
-
-  // Kill session immediately (no awaits)
-  try {
-    _session?.leaveCall();
-  } catch (_) {}
-
-  // Reset shared
-  try {
-    _shared.resetSession();
-  } catch (_) {}
-
-  // Reset UI
-  setState(() {
-    _conversation.clear();
-    _currentTranscriptChunk = '';
-    _status = 'Talk To Maya';
-    _isListening = false;
-    _isConnecting = false;
-    _isMicMuted = false;
-    _isSpeakerMuted = false;
-  });
-
-  // Create a new blank session
-  _shared.init();
-  _session = _shared.session;
-
-  // Rebind listeners (fresh)
-  _session?.statusNotifier.addListener(_onStatusChange);
-  _session?.dataMessageNotifier.addListener(_onDataMessage);
-  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-  debugPrint('✅ IMMEDIATE reset done after hangUp tool call.');
-}
-
-
-void _forceEndSession() {
-  if (_ignoreTranscripts) return;
-  _ignoreTranscripts = true;
-
-  // Stop session instantly (no awaits)
-  try {
-    _session?.leaveCall();
-  } catch (_) {}
-
-  try {
-    _shared.resetSession(); // fire and forget
-  } catch (_) {}
-
-  // Immediately clear UI state
-  if (mounted) {
     setState(() {
-      _conversation.clear();
-      _currentTranscriptChunk = '';
-      _status = 'Talk To Maya';
-      _isListening = false;
-      _isConnecting = false;
+      _isConnecting = true;
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
     });
-  }
 
-  debugPrint('✅ Maya session ended instantly after hangUp tool call.');
-}
+    _ignoreTranscripts = false;
+    _orbController.forward(from: 0);
+    _pulseController.repeat();
 
-  // Play a sequence of quick typing key sounds to simulate searching/typing
-  Future<void> _playTypingSound() async {
-    if (_isPlayingTypingSound) return;
-    _isPlayingTypingSound = true;
+    try {
+      final payload = _apiClient.prepareStartThunderPayload('main');
+      final res = await _apiClient.startThunder(payload['agent_type']);
+      if (res['statusCode'] == 200) {
+        final joinUrl = res['data']['data']['joinUrl'];
+        _shared.init();
+        _session = _shared.session;
+        _removeListeners();
+        _setupListeners();
 
-    // Play 5 quick keypress sounds with slight delays
-    for (int i = 0; i < 5; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      await _audioPlayer.play(AssetSource('typing.mp3')); // Adjust path as needed
-    }
+        await _session!.joinCall(joinUrl);
+        _session!.micMuted = _isMicMuted;
+        _session!.speakerMuted = _isSpeakerMuted;
 
-    // Reset flag after a short delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    _isPlayingTypingSound = false;
-  }
-
-  String _mapStatusToSpeech(UltravoxSessionStatus status) {
-    switch (status) {
-      case UltravoxSessionStatus.disconnected:
-        return 'Talk To Maya';
-      case UltravoxSessionStatus.connecting:
-        return 'Connecting To Maya';
-      case UltravoxSessionStatus.speaking:
-        return 'Maya is Speaking';
-      case UltravoxSessionStatus.disconnecting:
-        return 'Ending Conversation...';
-      case UltravoxSessionStatus.listening:
-        return 'Maya is Listening';
-      case UltravoxSessionStatus.thinking:
-        return 'Maya is Thinking';
-      case UltravoxSessionStatus.idle:
-        return 'Maya is Ready';
-      default:
-        return 'Talk To Maya';
-    }
-  }
-
-  Future<void> _checkInitialPermission() async {
-    final granted = await MicPermissionService.isGranted();
-    if (!granted) {
-      setState(() {
-        _currentTranscriptChunk = 'Tap to grant microphone access';
-      });
-    }
-  }
-
- Future<void> _onStart() async {
-  // If an active session is present, treat tap as a stop request instead.
-  if (_shared.isSessionActive && _session?.status != UltravoxSessionStatus.disconnected) {
-    await _onStop();
-    return;
-  }
-
-  final granted = await MicPermissionService.request(context);
-  if (!granted) return;
-
-  setState(() {
-    _isConnecting = true;
-    _isMicMuted = false;
-    _isSpeakerMuted = false;
-  });
-
-  _ignoreTranscripts = false;
-  _orbController.forward(from: 0);
-  _pulseController.repeat();
-
-  try {
-    final payload = _apiClient.prepareStartThunderPayload('main');
-    final res = await _apiClient.startThunder(payload['agent_type']);
-
-    if (res['statusCode'] == 200) {
-      final joinUrl = res['data']['data']['joinUrl'];
-
-      _shared.init();
-      _session = _shared.session;
-
-      _session?.statusNotifier.removeListener(_onStatusChange);
-      _session?.dataMessageNotifier.removeListener(_onDataMessage);
-      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
-
-      _session?.statusNotifier.addListener(_onStatusChange);
-      _session?.dataMessageNotifier.addListener(_onDataMessage);
-      _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-      await _session!.joinCall(joinUrl);
-
-      _session!.micMuted = _isMicMuted;
-      _session!.speakerMuted = _isSpeakerMuted;
-
-      setState(() => _isConnecting = false);
-    } else {
+        setState(() => _isConnecting = false);
+      } else {
+        throw Exception("Failed to start");
+      }
+    } catch (e) {
       setState(() {
         _isConnecting = false;
-        _currentTranscriptChunk = 'Failed to start session';
+        _currentTranscriptChunk = 'Error connecting...';
       });
     }
-  } catch (e) {
-    setState(() {
-      _isConnecting = false;
-      _currentTranscriptChunk = 'Error: $e';
-    });
   }
-}
-
 
   Future<void> _onStop() async {
-    // Immediately block late transcripts
-    _ignoreTranscripts = true;
-
-    // mute locally
-    _session?.micMuted = true;
-    _session?.speakerMuted = true;
-
-    setState(() {
-      _isListening = false;
-      _isConnecting = false;
-      _currentTranscriptChunk = '';
-
-    _status = 'Talk To Maya';
-    });
-
-    // Unbind listeners before resetting session to avoid stray callbacks
-    try {
-      _session?.statusNotifier.removeListener(_onStatusChange);
-      _session?.dataMessageNotifier.removeListener(_onDataMessage);
-      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
-    } catch (_) {}
-
-    // Reset session and clear shared state
-    await _shared.resetSession();
-
-    // Prepare a fresh session for future starts
-    _shared.init();
-    _session = _shared.session;
-
-    // Rebind listeners to the new session (so UI remains responsive)
-    _session?.statusNotifier.addListener(_onStatusChange);
-    _session?.dataMessageNotifier.addListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-
-    _pulseController.stop();
-    _speakingPulseController.stop();
-    _orbController.reverse(from: 1.0);
-
-    if (mounted) {
-      
-
-      // Update local copies to reflect cleared shared state
-      setState(() {
-        _conversation = List.from(_shared.conversation);
-        _currentTranscriptChunk = _shared.currentTranscript;
-        _isMicMuted = _shared.isMicMuted;
-        _isSpeakerMuted = _shared.isSpeakerMuted;
-      });
-    }
+    await _resetEverything();
   }
 
   void _toggleMicMute() {
@@ -619,18 +373,17 @@ void _forceEndSession() {
     final msg = _textController.text.trim();
     if (msg.isEmpty) return;
 
+    _lastSentText = msg;
+
     try {
       _session?.sendText(msg);
-    } catch (e) {
-      // ignore send errors locally, still show message
-    }
+    } catch (_) {}
 
     setState(() {
       _conversation.add({'type': 'user', 'text': msg});
       _shared.addMessage('user', msg);
       _textController.clear();
     });
-
     _scrollToBottom();
   }
 
@@ -646,10 +399,49 @@ void _forceEndSession() {
       if (!_scrollController.hasClients) return;
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
     });
+  }
+
+  Future<void> _playTypingSound() async {
+    if (_isPlayingTypingSound) return;
+    _isPlayingTypingSound = true;
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      await _audioPlayer.play(AssetSource('typing.mp3'));
+    }
+    await Future.delayed(const Duration(milliseconds: 500));
+    _isPlayingTypingSound = false;
+  }
+
+  String _mapStatusToSpeech(UltravoxSessionStatus status) {
+    switch (status) {
+      case UltravoxSessionStatus.disconnected:
+        return 'Talk To Maya';
+      case UltravoxSessionStatus.connecting:
+        return 'Connecting To Maya';
+      case UltravoxSessionStatus.speaking:
+        return 'Maya is Speaking';
+      case UltravoxSessionStatus.listening:
+        return 'Maya is Listening';
+      case UltravoxSessionStatus.thinking:
+        return 'Maya is Thinking';
+      case UltravoxSessionStatus.idle:
+        return 'Maya is Ready';
+      default:
+        return 'Talk To Maya';
+    }
+  }
+
+  Future<void> _checkInitialPermission() async {
+    final granted = await MicPermissionService.isGranted();
+    if (!granted) {
+      setState(() {
+        _currentTranscriptChunk = 'Tap to grant microphone access';
+      });
+    }
   }
 
   @override
@@ -678,14 +470,18 @@ void _forceEndSession() {
                       IconButton(
                         icon: Icon(
                           _isMicMuted ? Icons.mic_off : Icons.mic,
-                          color: _controlsDisabled ? Colors.grey : (_isMicMuted ? Colors.grey : Colors.white),
+                          color: _controlsDisabled
+                              ? Colors.grey
+                              : (_isMicMuted ? Colors.grey : Colors.white),
                         ),
                         onPressed: _controlsDisabled ? null : _toggleMicMute,
                       ),
                       IconButton(
                         icon: Icon(
                           _isSpeakerMuted ? Icons.volume_off : Icons.volume_up,
-                          color: _controlsDisabled ? Colors.grey : (_isSpeakerMuted ? Colors.grey : Colors.white),
+                          color: _controlsDisabled
+                              ? Colors.grey
+                              : (_isSpeakerMuted ? Colors.grey : Colors.white),
                         ),
                         onPressed: _controlsDisabled ? null : _toggleSpeakerMute,
                       ),
@@ -695,7 +491,6 @@ void _forceEndSession() {
                 const SizedBox(height: 4),
                 Text(_status, style: const TextStyle(color: Colors.white70, fontSize: 17)),
                 const SizedBox(height: 24),
-
                 GestureDetector(
                   onTap: () => _isListening || _isConnecting ? _onStop() : _onStart(),
                   child: AnimatedBuilder(
@@ -720,7 +515,6 @@ void _forceEndSession() {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
@@ -739,18 +533,13 @@ void _forceEndSession() {
                             ),
                             child: Text(
                               _currentTranscriptChunk,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontStyle: FontStyle.italic,
-                              ),
+                              style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
                             ),
                           ),
                         );
                       }
-
                       final msg = _conversation[i];
                       final isUser = msg['type'] == 'user';
-
                       return Align(
                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
@@ -766,7 +555,6 @@ void _forceEndSession() {
                     },
                   ),
                 ),
-
                 Container(
                   padding: const EdgeInsets.all(16),
                   child: Row(
