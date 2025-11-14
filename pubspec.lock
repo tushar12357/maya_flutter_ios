@@ -462,6 +462,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.9+2"
+  flutter_hooks:
+    dependency: transitive
+    description:
+      name: flutter_hooks
+      sha256: b10cab7e0e4dbb60ff5360a740def3919aecbc672240f742a7130a2874204229
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.19.0"
   flutter_launcher_icons:
     dependency: "direct main"
     description:
@@ -510,6 +518,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.3"
+  flutter_query:
+    dependency: "direct main"
+    description:
+      name: flutter_query
+      sha256: "648c95769fa67ddca237687487248738cf38c2a70e916d232054248115f35142"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.7"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -1080,6 +1096,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
+  query_core:
+    dependency: transitive
+    description:
+      name: query_core
+      sha256: "23ec55ab8123435e107df94276cca3ed972f9a4834b5a0b5085dda2402c41183"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   rxdart:
     dependency: transitive
     description:

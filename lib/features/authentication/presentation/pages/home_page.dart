@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:ui';
+import 'package:Maya/utils/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -119,6 +121,12 @@ class _HomePageState extends State<HomePage> {
     setState(() => _fcmToken = token);
   }
 
+
+String _getUserCountry() {
+  final locale = PlatformDispatcher.instance.locale;
+  return locale.countryCode ?? 'Unknown';
+}
+
   // -----------------------------------------------------------------------
   // 2. Centralised profile sync (FCM + location + timezone)
   // -----------------------------------------------------------------------
@@ -134,6 +142,7 @@ class _HomePageState extends State<HomePage> {
       final String firstName = userData['first_name']?.toString() ?? '';
       final String lastName = userData['last_name']?.toString() ?? '';
       final String phoneNumber = userData['phone_number']?.toString() ?? '';
+final userCountry = _getUserCountry();
 
       setState(() {
         _userFirstName = firstName;
@@ -158,6 +167,7 @@ class _HomePageState extends State<HomePage> {
         "latitude": position.latitude,
         "longitude": position.longitude,
         "timezone": timezone,
+  "country": userCountry,
       };
 
       final updateResp = await _apiClient.updateUserProfilePartial(payload);
@@ -663,51 +673,74 @@ Widget build(BuildContext context) {
                       child: Column(
                         children: [
                           // Active Tasks
-                          _buildSectionHeader(
+               _buildSectionHeader(
                             'Active Tasks',
                             LucideIcons.zap,
-                            () => context.go('/tasks'),
+                            () => context.push('/tasks'),
                           ),
                           const SizedBox(height: 12),
-                          if (isLoadingTasks)
-                            const Center(child: CircularProgressIndicator())
-                          else if (tasks.isEmpty)
+
+                          if (isLoadingTasks) ...[
+                            // Show 3 skeletons while loading
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                          ] else if (tasks.isEmpty)
                             _buildEmptyState('No active tasks')
                           else
-                            ...tasks.take(3).map(_buildTaskCard),
+                            ...tasks
+                                .take(3)
+                                .map((task) => _buildTaskCard(task)),
+
                           const SizedBox(height: 24),
 
-                          // Reminders
+                          // === Reminders ===
                           _buildSectionHeader(
                             'Reminders',
                             LucideIcons.calendar,
-                            () => context.go('/reminders'),
+                            () => context.push('/reminders'),
                           ),
                           const SizedBox(height: 12),
-                          if (isLoadingReminders)
-                            const Center(child: CircularProgressIndicator())
-                          else if (reminders.isEmpty)
+
+                          if (isLoadingReminders) ...[
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                          ] else if (reminders.isEmpty)
                             _buildEmptyState('No reminders')
                           else
-                            ...reminders.map(_buildReminderCard),
+                            ...reminders.map((r) => _buildReminderCard(r)),
+
                           const SizedBox(height: 24),
 
-                          // To-dos
+                          // === To‑Do ===
                           _buildSectionHeader(
                             'To-Do',
                             LucideIcons.clipboardList,
-                            () => context.go('/todos'),
+                            () => context.push('/todos'),
                           ),
                           const SizedBox(height: 12),
-                          if (isLoadingTodos)
-                            const Center(child: CircularProgressIndicator())
-                          else if (todos.isEmpty)
+
+                          if (isLoadingTodos) ...[
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                            const SizedBox(height: 12),
+                            const SkeletonItem(),
+                          ] else if (todos.isEmpty)
                             _buildEmptyState('No to-dos')
                           else
-                            ...todos.take(3).map(_buildToDoCard),
+                            ...todos
+                                .take(3)
+                                .map((todo) => _buildToDoCard(todo)),
 
-                          const SizedBox(height: 100),
-                        ],
+                          const SizedBox(
+                            height: 100,
+                          ),           ],
                       ),
                     ),
                   ],

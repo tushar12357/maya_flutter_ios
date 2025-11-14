@@ -187,10 +187,11 @@ class ApiClient {
   }
 
   // Fetch Tasks API
-  Future<Map<String, dynamic>> fetchTasks({int page=1}) async {
+  Future<Map<String, dynamic>> fetchTasks({int page=1, String? status}) async {
     final response = await get(
       _protectedDio,
     '/thunder/get-tool-call-sessions?page=$page',
+    queryParameters: {'status': status},
     );
     print('fetchTasks response: ${response.data}');
     print('fetchTasks statusCode: ${response.statusCode}');

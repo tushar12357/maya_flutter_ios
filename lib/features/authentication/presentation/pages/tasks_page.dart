@@ -1,3 +1,4 @@
+import 'package:Maya/utils/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
@@ -45,7 +46,7 @@ class TaskDetail {
           'No query',
       status: status.isNotEmpty
           ? status
-          : (success ? 'completed' : (error.isNotEmpty ? 'failed' : 'pending')),
+          : (success ? 'complete' : (error.isNotEmpty ? 'failed' : 'pending')),
       error: error.isNotEmpty ? error : 'None',
       timestamp: formattedTimestamp,
     );
@@ -86,6 +87,24 @@ class _TasksPageState extends State<TasksPage> {
     super.dispose();
   }
 
+  String? _mapFilterToStatus(String filter) {
+    switch (filter) {
+      case 'succeeded':
+        return 'succeeded';
+      case 'failed':
+        return 'failed';
+      case 'pending':
+        return 'pending';
+      case 'approval-pending':
+        return 'approval-pending';
+      case 'scheduled':
+        return 'scheduled';
+      case 'all':
+      default:
+        return null; // backend returns everything
+    }
+  }
+
   Future<void> fetchTasks({int page = 1}) async {
     if (page == 1) {
       setState(() {
@@ -99,20 +118,29 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     try {
-      final response = await apiClient.fetchTasks(page: page);
+      final statusFilter = _mapFilterToStatus(selectedFilter);
+      final response = await apiClient.fetchTasks(
+        page: page,
+        status: statusFilter,
+      );
+
       final data = response['data'];
       if (response['statusCode'] == 200 && data['success'] == true) {
         final List<dynamic> taskList =
             data['data']?['sessions'] as List<dynamic>? ?? [];
+
         setState(() {
-          final newTasks =
-              taskList.map((json) => TaskDetail.fromJson(json)).toList();
+          final newTasks = taskList
+              .map((json) => TaskDetail.fromJson(json))
+              .toList();
           if (page == 1) {
             tasks = newTasks;
           } else {
             tasks.addAll(newTasks);
           }
-          hasMore = newTasks.isNotEmpty;
+          hasMore =
+              newTasks.isNotEmpty &&
+              taskList.length >= 20; // assuming 20 per page
           currentPage = page;
           isLoading = false;
           isLoadingMore = false;
@@ -145,9 +173,14 @@ class _TasksPageState extends State<TasksPage> {
 
   String _getFilterStatus(String status) {
     final lower = status.toLowerCase();
-    if (lower == 'succeeded' || lower == 'completed') return 'completed';
+
+    if (lower == 'succeeded') return 'succeeded';
     if (lower == 'failed') return 'failed';
-    return 'pending'; // includes approval_pending, etc.
+    if (lower == 'pending') return 'pending';
+    if (lower == 'approval-pending') return 'approval-pending';
+    if (lower == 'scheduled') return 'scheduled';
+
+    return 'pending'; // fallback
   }
 
   @override
@@ -174,28 +207,41 @@ class _TasksPageState extends State<TasksPage> {
               ),
             ),
           ),
-          
+
           SafeArea(
             child: Column(
               children: [
                 // Tasks section
+                // ──────────────────────────────────────────────────────────────
+                //  Replace the current heading (the Row with the Text "Tasks")
+                //  with the block below
+                // ──────────────────────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // 1. Main title – same size as SettingsPage ("Doll Setup")
                       const Text(
                         'Tasks',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 20, // ← matches SettingsPage
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // 2. Optional subtitle (mirrors the look of SettingsPage)
+                      Text(
+                        'View and manage all your tasks',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.7),
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 12),
 
                 // Filter chips
@@ -205,13 +251,20 @@ class _TasksPageState extends State<TasksPage> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('all', 'All Tasks'),
+                        _buildFilterChip('all', 'All'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('completed', 'Completed'),
+                        _buildFilterChip('succeeded', 'Completed'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('failed', 'Failed'),
                         const SizedBox(width: 8),
                         _buildFilterChip('pending', 'Pending'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('failed', 'Failed'),
+                        _buildFilterChip(
+                          'approval-pending',
+                          'Approval Pending',
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('scheduled', 'Scheduled'),
                       ],
                     ),
                   ),
@@ -222,69 +275,71 @@ class _TasksPageState extends State<TasksPage> {
                 // Tasks list
                 Expanded(
                   child: isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
+                      ? ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                          itemCount: 5,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) => const SkeletonItem(),
                         )
                       : errorMessage != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    errorMessage!,
-                                    style: const TextStyle(
-                                      color: Color(0xFFEF4444),
-                                      fontSize: 16,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () => fetchTasks(page: 1),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF3B82F6),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : filteredTasks.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No tasks found',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white60,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  controller: _scrollController,
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                                  itemCount: filteredTasks.length +
-                                      (isLoadingMore ? 1 : 0),
-                                  itemBuilder: (context, index) {
-                                    if (index == filteredTasks.length) {
-                                      return const Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.all(16.0),
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    final task = filteredTasks[index];
-                                    return _buildTaskCard(task);
-                                  },
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                errorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFEF4444),
+                                  fontSize: 16,
                                 ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => fetchTasks(page: 1),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF3B82F6),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : filteredTasks.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No tasks found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white60,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                          itemCount:
+                              filteredTasks.length + (isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == filteredTasks.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            }
+                            final task = filteredTasks[index];
+                            return _buildTaskCard(task);
+                          },
+                        ),
                 ),
               ],
             ),
@@ -298,17 +353,26 @@ class _TasksPageState extends State<TasksPage> {
     final bool isSelected = selectedFilter == filter;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          selectedFilter = filter;
-        });
+        if (selectedFilter != filter) {
+          setState(() {
+            selectedFilter = filter;
+            hasMore = true;
+            tasks.clear(); // clear old tasks
+          });
+          fetchTasks();
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          color: isSelected
+              ? Colors.white.withOpacity(0.2)
+              : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? Colors.white.withOpacity(0.4) : Colors.white.withOpacity(0.2),
+            color: isSelected
+                ? Colors.white.withOpacity(0.4)
+                : Colors.white.withOpacity(0.2),
             width: 1,
           ),
         ),
@@ -332,7 +396,6 @@ class _TasksPageState extends State<TasksPage> {
 
     switch (task.status.toLowerCase()) {
       case 'succeeded':
-      case 'completed':
         statusColor = const Color(0xFF10B981);
         statusLabel = 'Completed';
         statusIcon = LucideIcons.checkCircle2;
@@ -355,10 +418,7 @@ class _TasksPageState extends State<TasksPage> {
 
     return GestureDetector(
       onTap: () {
-        context.go(
-          '/tasks/${task.id}',
-          extra: {'query': task.query},
-        );
+        context.push('/tasks/${task.id}', extra: {'query': task.query});
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -366,10 +426,7 @@ class _TasksPageState extends State<TasksPage> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E3A5F).withOpacity(0.5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,7 +436,10 @@ class _TasksPageState extends State<TasksPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
@@ -405,7 +465,7 @@ class _TasksPageState extends State<TasksPage> {
                   ),
                 ),
                 // Checkbox
-             ],
+              ],
             ),
             const SizedBox(height: 12),
 
@@ -421,7 +481,7 @@ class _TasksPageState extends State<TasksPage> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            
+
             const SizedBox(height: 12),
 
             // Footer with timestamp and priority badge
@@ -448,7 +508,10 @@ class _TasksPageState extends State<TasksPage> {
                 // Priority badge (optional - can be conditional)
                 if (task.status.toLowerCase() == 'approval_pending')
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF59E0B).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(6),
