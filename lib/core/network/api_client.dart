@@ -70,9 +70,7 @@ class ApiClient {
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
           // ❌ NEVER retry multipart uploads - they break on retry
-          if (error.requestOptions.path.contains('/auth/users/update')) {
-            return handler.next(error);
-          }
+          
 
           if (error.response?.statusCode == 401) {
             final encodedRefreshToken =
@@ -129,9 +127,7 @@ class ApiClient {
             },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
           // ❌ Do NOT retry profile update endpoint
-          if (error.requestOptions.path.contains('/auth/users/update')) {
-            return handler.next(error);
-          }
+         
 
           if (error.response?.statusCode == 401) {
             final encodedRefreshToken =
@@ -901,92 +897,67 @@ class ApiClient {
   }
 
   // ✅ Main update function - intelligently chooses multipart vs JSON
-  Future<Map<String, dynamic>> updateUserProfile({
-    File? avatar,
-    String? firstName,
-    String? lastName,
-    String? phoneNumber,
-  }) async {
-    try {
-      // ✅ If there's a file, use multipart with _multipartDio
-      if (avatar != null) {
-        final Map<String, dynamic> map = {};
+Future<Map<String, dynamic>> updateUserProfile({
+  File? avatar,
+  String? firstName,
+  String? lastName,
+  String? phoneNumber,
+  String? fcmToken,
+  double? latitude,
+  double? longitude,
+  String? timezone,
+  String? country,
+}) async {
+  try {
+    final Map<String, dynamic> map = {};
 
-        // Add text fields if provided
-        if (firstName != null) map['first_name'] = firstName;
-        if (lastName != null) map['last_name'] = lastName;
-        if (phoneNumber != null) map['phone_number'] = phoneNumber;
+    // Add text fields if provided
+    if (firstName != null) map['first_name'] = firstName;
+    if (lastName != null) map['last_name'] = lastName;
+    if (phoneNumber != null) map['phone_number'] = phoneNumber;
+    if (fcmToken != null) map['fcm_token'] = fcmToken;
+    if (latitude != null) map['latitude'] = latitude.toString();
+    if (longitude != null) map['longitude'] = longitude.toString();
+    if (timezone != null) map['timezone'] = timezone;
+    if (country != null) map['country'] = country;
 
-        // Add file
-        final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        map['profile_image'] = await MultipartFile.fromFile(
-          avatar.path,
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        );
-
-        final formData = FormData.fromMap(map);
-
-        print("📤 Uploading via multipart/form-data");
-        
-        // ✅ Use multipart Dio - NO manual Content-Type header
-        final response = await _multipartDio.patch(
-          '/auth/users/update',
-          data: formData,
-          onSendProgress: (sent, total) {
-            if (total != -1) {
-              print("Upload progress: ${(sent / total * 100).toStringAsFixed(0)}%");
-            }
-          },
-          options: Options(
-            headers: {
-              // ❌ DO NOT set Content-Type - Dio auto-generates with boundary
-            },
-          ),
-        );
-
-        return {
-          'statusCode': response.statusCode,
-          'data': response.data,
-        };
-      } 
-      // ✅ No file? Use regular JSON with _protectedDio
-      else {
-        final Map<String, dynamic> payload = {};
-        
-        if (firstName != null) payload['first_name'] = firstName;
-        if (lastName != null) payload['last_name'] = lastName;
-        if (phoneNumber != null) payload['phone_number'] = phoneNumber;
-
-        if (payload.isEmpty) {
-          return {
-            'statusCode': 400,
-            'data': {'message': 'No fields to update', 'success': false}
-          };
-        }
-
-        print("📤 Updating via application/json");
-
-        final response = await _protectedDio.patch(
-          '/auth/users/update',
-          data: payload,
-        );
-
-        return {
-          'statusCode': response.statusCode,
-          'data': response.data,
-        };
-      }
-    } on DioException catch (e) {
-      print("❌ Dio Exception: ${e.response?.data}");
-      print("❌ Status: ${e.response?.statusCode}");
-      return {
-        'statusCode': e.response?.statusCode ?? 500,
-        'data': e.response?.data ?? {'message': 'Network error'}
-      };
-    } catch (e) {
-      print("❌ Unexpected error: $e");
-      return {'statusCode': 500, 'data': {'message': e.toString()}};
+    // Add file if present
+    if (avatar != null) {
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      map['profile_image'] = await MultipartFile.fromFile(
+        avatar.path,
+        filename: fileName,
+        contentType: MediaType('image', 'jpeg'),
+      );
     }
+
+    final formData = FormData.fromMap(map);
+
+    print("📤 Updating via MULTIPART");
+
+    final response = await _multipartDio.patch(
+      '/auth/users/update',
+      data: formData,
+      options: Options(
+        headers: {
+          // ❌ Do NOT set Content-Type manually
+          // Dio will auto-generate boundary header
+        },
+      ),
+    );
+
+    return {
+      'statusCode': response.statusCode,
+      'data': response.data,
+    };
+  } on DioException catch (e) {
+    print("❌ Dio Exception: ${e.response?.data}");
+    return {
+      'statusCode': e.response?.statusCode ?? 500,
+      'data': e.response?.data ?? {'success': false},
+    };
   }
+}
+
+
 }

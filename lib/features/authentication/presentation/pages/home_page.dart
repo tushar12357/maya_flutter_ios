@@ -173,7 +173,14 @@ Future<void> _sendLocationUpdate(Position pos) async {
       "country": country,
     };
 
-    await _apiClient.updateUserProfilePartial(payload);
+await _apiClient.updateUserProfile(
+  
+  // dynamic fields:
+  latitude: pos.latitude,
+  longitude: pos.longitude,
+  timezone: timezoneInfo.identifier,
+  country: country,
+);
     debugPrint("📍 Live location updated: $payload");
 
   } catch (e) {
@@ -237,14 +244,19 @@ final userCountry = _getUserCountry();
 
       // ✅ Only send dynamic fields that can change frequently
       final Map<String, dynamic> payload = {
-        "fcm_token": token,
+        "fcm_token": token ?? '',
         "latitude": position.latitude,
         "longitude": position.longitude,
         "timezone": timezone,
   "country": userCountry,
       };
-
-      final updateResp = await _apiClient.updateUserProfilePartial(payload);
+      final updateResp = await _apiClient.updateUserProfile(
+        fcmToken: token ?? '',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        timezone: timezone,
+        country: userCountry,
+      );
 
       if (updateResp['statusCode'] == 200) {
         _showSnack('Profile synced successfully');
