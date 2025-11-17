@@ -1,1346 +1,650 @@
-import 'dart:async';
-import 'dart:ui';
-import 'package:Maya/features/widgets/skeleton.dart';
+import 'package:Maya/core/services/call_interruption_service.dart';
+import 'package:Maya/core/services/thunder_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:get_it/get_it.dart';
 import 'package:Maya/core/network/api_client.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
-import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io' show Platform;
-import '../../../authentication/presentation/bloc/auth_bloc.dart';
-import '../../../authentication/presentation/bloc/auth_state.dart';
-import 'package:Maya/core/services/notification_service.dart';
-import 'package:Maya/core/services/contact_service.dart';
+import 'package:Maya/core/services/mic_service.dart';
+import 'package:ultravox_client/ultravox_client.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+class TalkToMaya extends StatefulWidget {
+  const TalkToMaya({super.key});
 
-// ---------------------------------------------------------------------------
-// TaskDetail model (unchanged)
-// ---------------------------------------------------------------------------
-class TaskDetail {
-  final String id;
-  final String query;
-  final String status;
-  final String error;
-  final String timestamp;
-
-  TaskDetail({
-    required this.id,
-    required this.query,
-    required this.status,
-    required this.error,
-    required this.timestamp,
-  });
-
-  factory TaskDetail.fromJson(Map<String, dynamic> json) {
-    final toolCall = json['current_tool_call'] as Map<String, dynamic>? ?? {};
-    final status =
-        toolCall['status']?.toString() ?? json['status']?.toString() ?? '';
-    final success =
-        json['success'] as bool? ?? toolCall['success'] as bool? ?? false;
-    final error =
-        json['error']?.toString() ?? toolCall['error']?.toString() ?? '';
-    String formattedTimestamp = 'No timestamp';
-    try {
-      final createdAt = DateTime.parse(json['created_at']?.toString() ?? '');
-      formattedTimestamp = DateFormat('MMM dd, yyyy HH:mm').format(createdAt);
-    } catch (_) {}
-    return TaskDetail(
-      id: json['id']?.toString() ?? 'Unknown',
-      query:
-          json['user_payload']?['task']?.toString() ??
-          json['query']?.toString() ??
-          'No query',
-      status: status.isNotEmpty
-          ? status
-          : (success ? 'completed' : (error.isNotEmpty ? 'failed' : 'pending')),
-      error: error.isNotEmpty ? error : 'None',
-      timestamp: formattedTimestamp,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// HomePage
-// ---------------------------------------------------------------------------
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<TalkToMaya> createState() => _TalkToMayaState();
 }
 
-class _HomePageState extends State<HomePage> {
-  // -----------------------------------------------------------------------
-  // State
-  // -----------------------------------------------------------------------
-  List<Map<String, dynamic>> todos = [];
-  List<Map<String, dynamic>> reminders = [];
-  List<TaskDetail> tasks = [];
-  late SharedPreferences _prefs;
-  bool _locationPermissionAsked = false;
-  bool _contactsPermissionAsked = false;
-  bool isLoadingTodos = false;
-  bool isLoadingReminders = false;
-  bool isLoadingTasks = false;
+class _TalkToMayaState extends State<TalkToMaya>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  // === Core State ===
+  bool _isListening = false;
+  bool _isConnecting = false;
+  bool _isMicMuted = false;
+  bool _isSpeakerMuted = false;
+  String _currentTranscriptChunk = '';
+  String _status = 'Talk To Maya';
 
-  final NotificationServices _notification = NotificationServices();
-  late final ApiClient _apiClient;
+  // === Guards & Flags ===
+  bool _ignoreTranscripts = false;
+  bool _isResetting = false;
+  String _lastSentText = ''; // To prevent double typed messages
 
-  String? _fcmToken;
-  String? _locationStatus;
-  String? _userFirstName;
-  String? _userLastName;
-  StreamSubscription<Position>? _locationSubscription;
-  Position? _lastSentPosition;
-  bool _isSendingLocation = false;
+  // === Services & Session ===
+  final ThunderSessionService _shared = ThunderSessionService();
+  UltravoxSession? _session;
+final CallInterruptionService _callService = CallInterruptionService();
+bool _wasMutedByCall = false; // Track if we muted due to call
+  // === UI Controllers ===
+  final ScrollController _scrollController = ScrollController();
+  final ApiClient _apiClient = GetIt.instance<ApiClient>();
+  final TextEditingController _textController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlayingTypingSound = false;
 
-  // -----------------------------------------------------------------------
-  // initState – wiring only
-  // -----------------------------------------------------------------------
+  // === Animations ===
+  late AnimationController _pulseController;
+  late AnimationController _orbController;
+  late AnimationController _speakingPulseController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _orbScaleAnimation;
+  late Animation<double> _speakingPulseAnimation;
+
+  List<Map<String, dynamic>> _conversation = [];
+
   @override
   void initState() {
     super.initState();
-    final publicDio = Dio();
-    final protectedDio = Dio();
-    _apiClient = ApiClient(publicDio, protectedDio);
-    _setupNotifications();
-    _syncUserProfile();
-    _initializeAndSyncContacts();
-    fetchReminders();
-    fetchToDos();
-    fetchTasks();
-    _startLiveLocationTracking();
+    WidgetsBinding.instance.addObserver(this);
+
+    _shared.init();
+    _session = _shared.session;
+
+    // Restore persistent state
+    _isMicMuted = _shared.isMicMuted;
+    _isSpeakerMuted = _shared.isSpeakerMuted;
+    _currentTranscriptChunk = _shared.currentTranscript;
+    _conversation = List.from(_shared.conversation);
+_setupCallInterruptionHandler();
+    _setupAnimations();
+    _setupListeners();
+    _updateWakelock();
+  }
+
+  void _setupAnimations() {
+    _orbController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _orbScaleAnimation = Tween<double>(begin: 1.0, end: 1.15)
+        .animate(CurvedAnimation(parent: _orbController, curve: Curves.easeInOut));
+
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.25)
+        .animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+
+    _speakingPulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _speakingPulseAnimation = Tween<double>(begin: 1.0, end: 1.1)
+        .animate(CurvedAnimation(parent: _speakingPulseController, curve: Curves.easeInOut));
+  }
+
+  void _setupListeners() {
+    _session?.statusNotifier.addListener(_onStatusChange);
+    _session?.dataMessageNotifier.addListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+  }
+
+  void _removeListeners() {
+    try {
+      _session?.statusNotifier.removeListener(_onStatusChange);
+      _session?.dataMessageNotifier.removeListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    WakelockPlus.disable(); // Always clean up
+    _removeListeners();
+    _audioPlayer.dispose();
+    _scrollController.dispose();
+    _textController.dispose();
+    _focusNode.dispose();
+    _pulseController.dispose();
+    _orbController.dispose();
+    _speakingPulseController.dispose();
     super.dispose();
   }
 
-  void _startLiveLocationTracking() async {
-    // Ensure permissions first
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return; // You already handle dialogs elsewhere
-    }
+  void _setupCallInterruptionHandler() async {
+  _callService.onCallStarted = () {
+    if (!mounted || _session == null || _isMicMuted) return;
 
-    _locationSubscription =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 5, // meters — triggers on slight movement
-          ),
-        ).listen((Position newPos) async {
-          // If it's the first reading
-          if (_lastSentPosition == null) {
-            _lastSentPosition = newPos;
-            await _sendLocationUpdate(newPos);
-            return;
-          }
+    print('CALL DETECTED → Muting Maya automatically');
+    _wasMutedByCall = _isMicMuted == false; // Remember if user had mic ON
 
-          // Check if changed even slightly (>= 5 meters)
-          final distance = Geolocator.distanceBetween(
-            _lastSentPosition!.latitude,
-            _lastSentPosition!.longitude,
-            newPos.latitude,
-            newPos.longitude,
-          );
+    setState(() {
+      _isMicMuted = true;
+      _shared.isMicMuted = true;
+      _session?.micMuted = true;
+    });
+  };
 
-          if (distance >= 5) {
-            _lastSentPosition = newPos;
-            await _sendLocationUpdate(newPos);
-          }
+  _callService.onCallEnded = () {
+    if (!mounted || _session == null || !_wasMutedByCall) return;
+
+    print('CALL ENDED → Unmuting Maya');
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted && _wasMutedByCall) {
+        setState(() {
+          _isMicMuted = false;
+          _shared.isMicMuted = false;
+          _session?.micMuted = false;
         });
-  }
-
-  Future<void> _sendLocationUpdate(Position pos) async {
-    if (_isSendingLocation) return;
-    _isSendingLocation = true;
-
-    try {
-      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
-      final country = _getUserCountry();
-
-      final payload = {
-        "latitude": pos.latitude,
-        "longitude": pos.longitude,
-        "timezone": timezoneInfo.identifier,
-        "country": country,
-      };
-
-      await _apiClient.updateUserProfile(
-        // dynamic fields:
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        timezone: timezoneInfo.identifier,
-        country: country,
-      );
-      debugPrint("📍 Live location updated: $payload");
-    } catch (e) {
-      debugPrint("Live location update error: $e");
-    } finally {
-      _isSendingLocation = false;
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // 1. Notification plumbing
-  // -----------------------------------------------------------------------
-  Future<void> _setupNotifications() async {
-    _notification.requestNotificationPermission();
-    _notification.forgroundMessage();
-    _notification.firebaseInit(context);
-    _notification.setupInteractMessage(context);
-    _notification.isTokenRefresh();
-    final token = await _notification.getDeviceToken();
-    setState(() => _fcmToken = token);
-  }
-
-  String _getUserCountry() {
-    final locale = PlatformDispatcher.instance.locale;
-    return locale.countryCode ?? 'Unknown';
-  }
-
-  // -----------------------------------------------------------------------
-  // 2. Centralised profile sync (FCM + location + timezone)
-  // -----------------------------------------------------------------------
-  Future<void> _syncUserProfile() async {
-    try {
-      final userResp = await _apiClient.getCurrentUser();
-      if (userResp['statusCode'] != 200) {
-        _showSnack('User fetch failed: ${userResp['data']['message']}');
-        return;
-      }
-
-      final userData = userResp['data'] as Map<String, dynamic>;
-      final String firstName = userData['first_name']?.toString() ?? '';
-      final String lastName = userData['last_name']?.toString() ?? '';
-      final String phoneNumber = userData['phone_number']?.toString() ?? '';
-      final userCountry = _getUserCountry();
-
-      setState(() {
-        _userFirstName = firstName;
-        _userLastName = lastName;
-      });
-
-      // Wait for FCM + Location/Timezone
-      final results = await Future.wait([
-        _waitForFcmToken(),
-        _obtainLocationAndTimezone(),
-      ]);
-
-      final String? token = results[0] as String?;
-      final (Position position, String timezone) =
-          results[1] as (Position, String);
-
-      if (token == null) return;
-
-      // ✅ Only send dynamic fields that can change frequently
-      final Map<String, dynamic> payload = {
-        "fcm_token": token ?? '',
-        "latitude": position.latitude,
-        "longitude": position.longitude,
-        "timezone": timezone,
-        "country": userCountry,
-      };
-      final updateResp = await _apiClient.updateUserProfile(
-        fcmToken: token ?? '',
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timezone: timezone,
-        country: userCountry,
-      );
-
-      if (updateResp['statusCode'] == 200) {
-        _showSnack('Profile synced successfully');
-      } else {
-        _showSnack('Profile sync failed: ${updateResp['data']['message']}');
-      }
-    } catch (e) {
-      debugPrint('Sync error: $e');
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // Helper: wait max 5 s for FCM token
-  // -----------------------------------------------------------------------
-  Future<String?> _waitForFcmToken() async {
-    final completer = Completer<String?>();
-    const timeout = Duration(seconds: 5);
-    Timer? timer;
-
-    void check() {
-      if (_fcmToken != null) {
-        timer?.cancel();
-        completer.complete(_fcmToken);
-      }
-    }
-
-    timer = Timer.periodic(const Duration(milliseconds: 200), (_) => check());
-    Future.delayed(timeout, () {
-      if (!completer.isCompleted) {
-        timer?.cancel();
-        completer.complete(null);
+        _wasMutedByCall = false;
       }
     });
-    check();
-    return completer.future;
-  }
+  };
 
-  // -----------------------------------------------------------------------
-  // Helper: location + timezone (with UI dialogs)
-  // -----------------------------------------------------------------------
-  Future<(Position, String)> _obtainLocationAndTimezone() async {
-    final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
-    final String timezone = timezoneInfo.identifier;
+  // Start listening
+  await _callService.initialize();
+}
 
-    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (!_locationPermissionAsked) {
-        _showLocationServiceDialog();
-        await _prefs.setBool('location_permission_asked', true);
-      }
-      throw Exception('Location services are disabled.');
-    }
+  // ===================================================================
+  // ONE AND ONLY RESET FUNCTION — SOLVES ALL RACE CONDITIONS
+  // ===================================================================
+  Future<void> _resetEverything({bool fromHangup = false}) async {
+    if (_isResetting) return;
+    _isResetting = true;
+    _ignoreTranscripts = true;
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    print('FULL RESET STARTED (${fromHangup ? "hangUp tool" : "normal"})');
 
-    if (permission == LocationPermission.denied && !_locationPermissionAsked) {
-      permission = await Geolocator.requestPermission();
-      await _prefs.setBool('location_permission_asked', true);
+    // Stop animations
+    _pulseController.stop();
+    _speakingPulseController.stop();
+    _orbController.stop();
 
-      if (permission == LocationPermission.denied) {
-        _showLocationPermissionDialog();
-        throw Exception('Location permission denied');
-      }
-    }
+    // Remove listeners immediately
+    _removeListeners();
 
-    if (permission == LocationPermission.deniedForever) {
-      if (!_locationPermissionAsked) {
-        _showLocationPermissionDialog(permanent: true);
-        await _prefs.setBool('location_permission_asked', true);
-      }
-      throw Exception('Location permission permanently denied');
-    }
-
+    // Mute + leave call
     try {
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      ).timeout(const Duration(seconds: 15));
+      _session?.micMuted = true;
+      _session?.speakerMuted = true;
+      _session?.leaveCall();
+    } catch (_) {}
 
-      debugPrint(
-        'Location obtained: ${position.latitude}, ${position.longitude}',
-      );
-      setState(() => _locationStatus = 'granted');
-      return (position, timezone);
-    } on TimeoutException {
-      throw Exception('Location request timed out');
-    } on PermissionDeniedException {
-      throw Exception('Location permission denied');
-    } on LocationServiceDisabledException {
-      throw Exception('Location service disabled');
+    // Reset shared state
+    await _shared.resetSession();
+
+    // UI Reset
+    if (mounted) {
+      setState(() {
+        _conversation.clear();
+        _currentTranscriptChunk = '';
+        _status = 'Talk To Maya';
+        _isListening = false;
+        _isConnecting = false;
+        _isMicMuted = false;
+        _isSpeakerMuted = false;
+      });
     }
+    // Fresh session
+    _shared.init();
+    _session = _shared.session;
+
+    // Re-attach listeners
+    _setupListeners();
+
+    _ignoreTranscripts = false;
+    _isResetting = false;
+    _lastSentText = '';
+_updateWakelock();
+
+    print('FULL RESET COMPLETE');
   }
 
-  // -----------------------------------------------------------------------
-  // UI dialogs
-  // -----------------------------------------------------------------------
-  // Updated location service dialog
-  void _showLocationServiceDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        // Use dialogContext
-        title: const Text('Location Services Disabled'),
-        content: const Text(
-          'Please enable location services to save your location.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext), // Pop dialogContext
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext); // Pop first
-              Geolocator.openLocationSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Updated location permission dialog
-  void _showLocationPermissionDialog({bool permanent = false}) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        // Use dialogContext
-        title: const Text('Location Permission Required'),
-        content: Text(
-          permanent
-              ? 'Location permissions are permanently denied. Please enable them in app settings.'
-              : 'Location permission is required to save your location.',
-        ),
-        actions: [
-          if (!permanent)
-            TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext), // Pop dialogContext
-              child: const Text('Cancel'),
-            ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext); // Pop first
-              if (permanent) {
-                openAppSettings();
-              } else {
-                Geolocator.requestPermission();
-              }
-            },
-            child: Text(permanent ? 'Open Settings' : 'Grant Permission'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Contacts sync – skip if empty
-  // -----------------------------------------------------------------------
-  // Updated contacts permission dialog (with recursion guard)
-  void _showContactsPermissionDialog({bool permanent = false}) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        // Use dialogContext
-        title: const Text('Contacts Permission Required'),
-        content: Text(
-          permanent
-              ? 'Contacts permissions are permanently denied. Please enable them in app settings.'
-              : 'Contacts permission is required to sync your contacts.',
-        ),
-        actions: [
-          if (!permanent)
-            TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext), // Pop dialogContext
-              child: const Text('Cancel'),
-            ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext); // Pop first
-              if (permanent) {
-                openAppSettings();
-              } else {
-                // Guard against recursion: Check permission before retrying
-                Permission.contacts.request().then((status) {
-                  if (status.isGranted) {
-                    _initializeAndSyncContacts();
-                  } else {
-                    _showSnack('Permission still denied');
-                  }
-                });
-              }
-            },
-            child: Text(permanent ? 'Open Settings' : 'Grant Permission'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Updated contacts sync (minor: add explicit permission check if ContactsService doesn't handle it)
-  Future<void> _initializeAndSyncContacts() async {
-    try {
-      final PermissionStatus status = await Permission.contacts.status;
-
-      if (status.isGranted) {
-        // Proceed
-      } else if (status.isPermanentlyDenied) {
-        if (!_contactsPermissionAsked) {
-          _showContactsPermissionDialog(permanent: true);
-          await _prefs.setBool('contacts_permission_asked', true);
-        }
-        return;
-      } else if (status.isDenied && !_contactsPermissionAsked) {
-        _showContactsPermissionDialog();
-        await _prefs.setBool('contacts_permission_asked', true);
-        return;
-      } else {
-        return; // Denied before, don't ask
-      }
-
-      final contacts = await ContactsService.fetchContactsSafely();
-      if (contacts == null || contacts.isEmpty) {
-        _showSnack(
-          contacts == null ? 'No contacts permission' : 'No contacts to sync',
-        );
-        return;
-      }
-
-      final payload = _apiClient.prepareSyncContactsPayload(contacts);
-      final response = await _apiClient.syncContacts(payload);
-      final msg = response['statusCode'] == 200
-          ? 'Contacts synced successfully'
-          : 'Failed to sync contacts: ${response['data']['message']}';
-      _showSnack(msg);
-    } catch (e) {
-      debugPrint('Contacts sync error: $e');
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // Data fetchers
-  // -----------------------------------------------------------------------
-
-  Future<void> fetchReminders() async {
-    setState(() => isLoadingReminders = true);
-    try {
-      final response = await _apiClient.getReminders(); // no params → latest
-      if (response['success'] == true) {
-        final List<dynamic> data = response['data']['data'] as List<dynamic>;
-        setState(() {
-          reminders = data
-              .cast<Map<String, dynamic>>()
-              .take(3) // only top 3
-              .toList();
-        });
-      } else {
-        _showSnack('Failed to load reminders');
-      }
-    } catch (e) {
-      debugPrint('fetchReminders error: $e');
-      _showSnack('Failed to load reminders');
-    } finally {
-      setState(() => isLoadingReminders = false);
-    }
-  }
-
-  Future<void> fetchToDos() async {
-    setState(() => isLoadingTodos = true);
-    try {
-      final response = await _apiClient.getToDo();
-      if (response['statusCode'] == 200) {
-        setState(() {
-          todos = List<Map<String, dynamic>>.from(response['data']['data']);
-        });
-      }
-    } catch (e) {
-      _showSnack('Failed to load To-Dos');
-    } finally {
-      setState(() => isLoadingTodos = false);
-    }
-  }
-
-  Future<void> fetchTasks() async {
-    setState(() => isLoadingTasks = true);
-    try {
-      final response = await _apiClient.fetchTasks(page: 1);
-      final data = response['data'];
-      if (response['statusCode'] == 200 && data['success'] == true) {
-        final List<dynamic> taskList =
-            data['data']?['sessions'] as List<dynamic>? ?? [];
-        setState(() {
-          tasks = taskList.map((json) => TaskDetail.fromJson(json)).toList();
-        });
-      }
-    } catch (e) {
-      _showSnack('Failed to load tasks');
-    } finally {
-      setState(() => isLoadingTasks = false);
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // To-Do CRUD helpers
-  // -----------------------------------------------------------------------
-  Future<void> addToDo(
-    String title,
-    String description, {
-    String? reminder,
-  }) async {
-    final payload = _apiClient.prepareCreateToDoPayload(
-      title,
-      description,
-      reminder,
-    );
-    final response = await _apiClient.createToDo(payload);
-    if (response['statusCode'] == 200) fetchToDos();
-  }
-
-  Future<void> updateToDo(Map<String, dynamic> todo) async {
-    final payload = _apiClient.prepareUpdateToDoPayload(
-      todo['ID'],
-      title: todo['title'],
-      description: todo['description'],
-      status: todo['status'],
-      reminder: todo['reminder'] ?? false,
-      reminder_time: todo['reminder_time'],
-    );
-    final response = await _apiClient.updateToDo(payload);
-    if (response['statusCode'] == 200) {
-      fetchToDos();
-      _showSnack('To-Do updated');
-    }
-  }
-
-  Future<void> completeToDo(Map<String, dynamic> todo) async {
-    setState(() => isLoadingTodos = true);
-    try {
-      final payload = _apiClient.prepareUpdateToDoPayload(
-        todo['ID'],
-        title: todo['title'],
-        description: todo['description'],
-        status: 'completed',
-        reminder: todo['reminder'] ?? false,
-        reminder_time: todo['reminder_time'],
-      );
-      final response = await _apiClient.updateToDo(payload);
-      if (response['statusCode'] == 200) {
-        await fetchToDos();
-        _showSnack('To-Do completed');
-      }
-    } catch (e) {
-      _showSnack('Error completing To-Do');
-    } finally {
-      setState(() => isLoadingTodos = false);
-    }
-  }
-
-  Future<void> deleteToDo(int id) async {
-    final response = await _apiClient.deleteToDo(id);
-    if (response['statusCode'] == 200) fetchToDos();
-  }
-
-  // -----------------------------------------------------------------------
-  // Sync & Copy Helpers
-  // -----------------------------------------------------------------------
-  void _forceSyncAll() async {
-    final snack = SnackBar(
-      content: Text('Syncing...'),
-      duration: Duration(seconds: 5),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snack);
-
-    await Future.wait([_syncUserProfile(), _initializeAndSyncContacts()]);
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    _showSnack('Sync completed');
-  }
-
-  void copyFcmToken() {
-    if (_fcmToken != null) {
-      Clipboard.setData(ClipboardData(text: _fcmToken!));
-      _showSnack('FCM Token copied!');
-    }
-  }
-
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  // -----------------------------------------------------------------------
-  // UI
-  // -----------------------------------------------------------------------
+  // ===================================================================
+  // Lifecycle: Handle tab close / app background
+  // ===================================================================
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      if (_shared.isSessionActive) {
+        _resetEverything();
+      }
+    }
+  }
+
+  // ===================================================================
+  // Status Handler — Only reset on disconnected
+  // ===================================================================
+void _onStatusChange() {
+  if (!mounted || _session == null || _isResetting) return;
+
+  final st = _session!.status;
+  print('STATUS: $st');
+
+  if (st == UltravoxSessionStatus.disconnected) {
+    _resetEverything();
+    _updateWakelock(); // Turn off
+    return;
+  }
+
+  setState(() {
+    _status = _mapStatusToSpeech(st);
+    _isListening = st == UltravoxSessionStatus.listening ||
+        st == UltravoxSessionStatus.speaking ||
+        st == UltravoxSessionStatus.thinking;
+  });
+
+  // === UPDATE WAKELOCK BASED ON STATE ===
+  _updateWakelock();
+
+  // === Animation logic (unchanged) ===
+  if (st == UltravoxSessionStatus.speaking) {
+    _pulseController.stop();
+    _speakingPulseController.repeat();
+  } else if (st == UltravoxSessionStatus.listening) {
+    _speakingPulseController.stop();
+    _pulseController.repeat();
+  } else {
+    _pulseController.stop();
+    _speakingPulseController.stop();
+  }
+}
+
+
+void _updateWakelock() {
+  final isActiveSession = _session?.status != null &&
+      _session!.status != UltravoxSessionStatus.disconnected &&
+      _session!.status != UltravoxSessionStatus.disconnecting;
+
+  if (isActiveSession) {
+    WakelockPlus.enable();
+    print('WAKELOCK: ENABLED');
+  } else {
+    WakelockPlus.disable();
+    print('WAKELOCK: DISABLED');
+  }
+}
+  // ===================================================================
+  // Data Message: Transcripts
+  // ===================================================================
+void _onDataMessage() {
+  if (!mounted || _ignoreTranscripts || _isResetting) return;
+
+  final transcripts = _session!.transcripts;
+  if (transcripts.isEmpty) return;
+
+  final latest = transcripts.last;
+  final text = latest.text.trim();
+
+  // Live partial transcript
+  if (!latest.isFinal) {
+    if (text.isNotEmpty && _currentTranscriptChunk != text) {
+      setState(() {
+        _currentTranscriptChunk = text;
+        _shared.currentTranscript = text;
+      });
+      _scrollToBottom();
+    }
+    return;
+  }
+
+  // Final message
+  if (text.isEmpty) return;
+
+  final isUser = latest.speaker == Role.user;
+  final speakerType = isUser ? 'user' : 'maya';
+
+  // Block typed message echo
+  if (isUser && text == _lastSentText) {
+    _lastSentText = '';
+    return;
+  }
+
+  // Block duplicate messages
+  if (_conversation.isNotEmpty) {
+    final last = _conversation.last;
+    if (last['type'] == speakerType && last['text'] == text) {
+      return;
+    }
+  }
+
+  setState(() {
+    _conversation.add({'type': speakerType, 'text': text});
+    _shared.addMessage(speakerType, text);
+    _currentTranscriptChunk = '';
+    _shared.currentTranscript = '';
+  });
+
+  _scrollToBottom();
+}// Debug Message: HangUp Detection + Typing Sound
+  // ===================================================================
+  void _onDebugMessage() {
+    if (_ignoreTranscripts || _isResetting) return;
+
+    final msg = _session?.experimentalMessageNotifier.value;
+    if (msg is! Map<String, dynamic>) return;
+
+    final message = msg.toString();
+
+    // HangUp Tool Call → Immediate Reset
+    if (message.contains('hangUp') &&
+        (message.contains('tool_calls') ||
+         message.contains('FunctionCall') ||
+         message.contains('"name":"hangUp"'))) {
+      print('HANGUP TOOL CALL DETECTED → FORCING RESET');
+      _resetEverything(fromHangup: true);
+      return;
+    }
+
+    // Typing sound on search
+    if ((message.contains('deep_search') || message.contains('simple_search')) &&
+        !_isPlayingTypingSound) {
+      _playTypingSound();
+    }
+  }
+
+  // ===================================================================
+  // Actions
+  // ===================================================================
+  Future<void> _onStart() async {
+    if (_shared.isSessionActive && _session?.status != UltravoxSessionStatus.disconnected) {
+      await _onStop();
+      return;
+    }
+
+    final granted = await MicrophonePermissionHandler.requestPermission();
+    if (!granted) return;
+
+    setState(() {
+      _isConnecting = true;
+      _isMicMuted = false;
+      _isSpeakerMuted = false;
+    });
+
+    _ignoreTranscripts = false;
+    _orbController.forward(from: 0);
+    _pulseController.repeat();
+
+    try {
+      final payload = _apiClient.prepareStartThunderPayload('main');
+      final res = await _apiClient.startThunder(payload['agent_type']);
+      if (res['statusCode'] == 200) {
+        final joinUrl = res['data']['data']['joinUrl'];
+        _shared.init();
+        _session = _shared.session;
+        _removeListeners();
+        _setupListeners();
+
+        await _session!.joinCall(joinUrl);
+        _session!.micMuted = _isMicMuted;
+        _session!.speakerMuted = _isSpeakerMuted;
+
+        setState(() => _isConnecting = false);
+        _updateWakelock();
+      } else {
+        throw Exception("Failed to start");
+        
+      }
+    } catch (e) {
+      setState(() {
+        _isConnecting = false;
+        _currentTranscriptChunk = 'Error connecting...';
+      });
+      _updateWakelock();
+    }
+  }
+
+  Future<void> _onStop() async {
+    await _resetEverything();
+    _updateWakelock();
+  }
+
+  void _toggleMicMute() {
+    if (_controlsDisabled) return;
+    setState(() {
+      _isMicMuted = !_isMicMuted;
+      _shared.isMicMuted = _isMicMuted;
+      _session?.micMuted = _isMicMuted;
+    });
+  }
+
+  void _toggleSpeakerMute() {
+    if (_controlsDisabled) return;
+    setState(() {
+      _isSpeakerMuted = !_isSpeakerMuted;
+      _shared.isSpeakerMuted = _isSpeakerMuted;
+      _session?.speakerMuted = _isSpeakerMuted;
+    });
+  }
+
+  void _handleSendMessage() {
+    if (_controlsDisabled) return;
+    final msg = _textController.text.trim();
+    if (msg.isEmpty) return;
+
+    _lastSentText = msg;
+
+    try {
+      _session?.sendText(msg);
+    } catch (_) {}
+
+    setState(() {
+      _conversation.add({'type': 'user', 'text': msg});
+      _shared.addMessage('user', msg);
+      _textController.clear();
+    });
+    _scrollToBottom();
+  }
+
+  bool get _controlsDisabled {
+    final s = _session?.status;
+    return s == UltravoxSessionStatus.disconnected ||
+        s == UltravoxSessionStatus.disconnecting ||
+        s == UltravoxSessionStatus.connecting;
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _playTypingSound() async {
+    if (_isPlayingTypingSound) return;
+    _isPlayingTypingSound = true;
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      await _audioPlayer.play(AssetSource('typing.mp3'));
+    }
+    await Future.delayed(const Duration(milliseconds: 500));
+    _isPlayingTypingSound = false;
+  }
+
+  String _mapStatusToSpeech(UltravoxSessionStatus status) {
+    switch (status) {
+      case UltravoxSessionStatus.disconnected:
+        return 'Talk To Maya';
+      case UltravoxSessionStatus.connecting:
+        return 'Connecting To Maya';
+      case UltravoxSessionStatus.speaking:
+        return 'Maya is Speaking';
+      case UltravoxSessionStatus.listening:
+        return 'Maya is Listening';
+      case UltravoxSessionStatus.thinking:
+        return 'Maya is Thinking';
+      case UltravoxSessionStatus.idle:
+        return 'Maya is Ready';
+      default:
+        return 'Talk To Maya';
+    }
+  }
+
+ 
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final displayName = _userFirstName?.isNotEmpty == true
-            ? _userFirstName!
-            : (state is AuthAuthenticated
-                  ? state.user.firstName ?? 'User'
-                  : 'User');
-
-        return Scaffold(
-          body: Stack(
-            children: [
-              // Background
-              Container(color: const Color(0xFF111827)),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x992A57E8), Colors.transparent],
+    return Scaffold(
+      backgroundColor: const Color(0xFF111827),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0x992A57E8), Colors.transparent],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _isMicMuted ? Icons.mic_off : Icons.mic,
+                          color: _controlsDisabled
+                              ? Colors.grey
+                              : (_isMicMuted ? Colors.grey : Colors.white),
+                        ),
+                        onPressed: _controlsDisabled ? null : _toggleMicMute,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _isSpeakerMuted ? Icons.volume_off : Icons.volume_up,
+                          color: _controlsDisabled
+                              ? Colors.grey
+                              : (_isSpeakerMuted ? Colors.grey : Colors.white),
+                        ),
+                        onPressed: _controlsDisabled ? null : _toggleSpeakerMute,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-
-              // Scrollable Content
-              SafeArea(
-                child: CustomScrollView(
-                  slivers: [
-                    // === Header Section ===
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Profile image
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 2,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(22),
-                                child: Image.asset(
-                                  'assets/maya_logo.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      LucideIcons.user,
-                                      color: Colors.white,
-                                      size: 24,
-                                    );
-                                  },
-                                ),
-                              ),
+                const SizedBox(height: 4),
+                Text(_status, style: const TextStyle(color: Colors.white70, fontSize: 17)),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: () => _isListening || _isConnecting ? _onStop() : _onStart(),
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_orbController, _speakingPulseController]),
+                    builder: (_, __) => Transform.scale(
+                      scale: _orbScaleAnimation.value * _speakingPulseAnimation.value,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: AssetImage('assets/maya_logo.png'),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        child: _isConnecting
+                            ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    itemCount: _conversation.length + (_currentTranscriptChunk.isNotEmpty ? 1 : 0),
+                    itemBuilder: (_, i) {
+                      if (_currentTranscriptChunk.isNotEmpty && i == _conversation.length) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.09),
+                              borderRadius: BorderRadius.circular(18),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Greeting
-                            Text(
-                              'Hello, $displayName!',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w400,
-                              ),
+                            child: Text(
+                              _currentTranscriptChunk,
+                              style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Let\'s explore the way in which I can\nassist you.',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                                height: 1.4,
-                              ),
+                          ),
+                        );
+                      }
+                      final msg = _conversation[i];
+                      final isUser = msg['type'] == 'user';
+                      return Align(
+                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(isUser ? 0.22 : 0.12),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Text(msg['text'], style: const TextStyle(color: Colors.white)),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          focusNode: _focusNode,
+                          enabled: !_controlsDisabled,
+                          decoration: InputDecoration(
+                            hintText: 'Type here...',
+                            hintStyle: const TextStyle(color: Colors.grey),
+                            filled: true,
+                            fillColor: const Color(0xFF1E293B),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              borderSide: BorderSide.none,
                             ),
-                            const SizedBox(height: 16),
-
-                            // Blue gradient card
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF3B82F6),
-                                    Color(0xFF2563EB),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF2563EB,
-                                    ).withOpacity(0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Generate complex algorithms\nand clean code with ease.',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  GestureDetector(
-                                    onTap: () => context.push('/maya'),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 150,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.30),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Text(
-                                        'Start Now',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          onSubmitted: (_) => _handleSendMessage(),
                         ),
                       ),
-                    ),
-
-                    // === Scrollable Sections ===
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          // Active Tasks
-                          // ---------------------------------------------------------------
-                          //  Inside the SliverList delegate (replace the old sections)
-                          // ---------------------------------------------------------------
-
-                          // === Active Tasks ===
-                          _buildSectionHeader(
-                            'Active Tasks',
-                            LucideIcons.zap,
-                            () => context.push('/tasks'),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _controlsDisabled ? null : _handleSendMessage,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF2A57E8), Color(0xFF6A0DAD)],
+                            ),
                           ),
-                          const SizedBox(height: 12),
-
-                          if (isLoadingTasks) ...[
-                            // Show 3 skeletons while loading
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                          ] else if (tasks.isEmpty)
-                            _buildEmptyState('No active tasks')
-                          else
-                            ...tasks
-                                .take(3)
-                                .map((task) => _buildTaskCard(task)),
-
-                          const SizedBox(height: 24),
-
-                          // === Reminders ===
-                          _buildSectionHeader(
-                            'Reminders',
-                            LucideIcons.calendar,
-                            () => context.push('/reminders'),
-                          ),
-                          const SizedBox(height: 12),
-
-                          if (isLoadingReminders) ...[
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                          ] else if (reminders.isEmpty)
-                            _buildEmptyState('No reminders')
-                          else
-                            ...reminders.map((r) => _buildReminderCard(r)),
-
-                          const SizedBox(height: 24),
-
-                          // === To‑Do ===
-                          _buildSectionHeader(
-                            'To-Do',
-                            LucideIcons.clipboardList,
-                            () => context.push('/todos'),
-                          ),
-                          const SizedBox(height: 12),
-
-                          if (isLoadingTodos) ...[
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                            const SizedBox(height: 12),
-                            const SkeletonItem(),
-                          ] else if (todos.isEmpty)
-                            _buildEmptyState('No to-dos')
-                          else
-                            ...todos
-                                .take(3)
-                                .map((todo) => _buildToDoCard(todo)),
-
-                          const SizedBox(
-                            height: 100,
-                          ), // Bottom padding // Bottom padding
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F).withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Center(
-        child: Text(
-          message,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.white.withOpacity(0.6),
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Solid blue card at the top
-  Widget _buildSolidBlueCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A57E8),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2A57E8).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Good to see you!',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You have ${tasks.length} active tasks',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              LucideIcons.trendingUp,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Section header with title and "View all"
-
-  // Task card
-  // Task card matching the first image
-  Widget _buildTaskCard(TaskDetail task) {
-    IconData statusIcon;
-    Color accentColor;
-    String statusLabel;
-
-    switch (task.status.toLowerCase()) {
-      case 'succeeded':
-      case 'completed':
-        statusIcon = LucideIcons.checkCircle2;
-        accentColor = const Color(0xFF10B981);
-        statusLabel = '● Completed';
-        break;
-      case 'failed':
-        statusIcon = LucideIcons.xCircle;
-        accentColor = const Color(0xFFEF4444);
-        statusLabel = '● Failed';
-        break;
-      case 'approval_pending':
-        statusIcon = LucideIcons.clock;
-        accentColor = const Color(0xFF3B82F6);
-        statusLabel = '● In Progress';
-        break;
-      default:
-        statusIcon = LucideIcons.clock;
-        accentColor = const Color(0xFFF59E0B);
-        statusLabel = '● Pending';
-    }
-
-    return GestureDetector(
-      onTap: () =>
-          context.push('/tasks/${task.id}', extra: {'query': task.query}),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E3A5F).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status badge with dot
-            Text(
-              statusLabel,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: accentColor,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Task title
-            Text(
-              task.query.isNotEmpty ? task.query : 'No query provided',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-
-            // Footer with timestamp and arrow
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      task.timestamp,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-                Icon(
-                  LucideIcons.arrowRight,
-                  size: 18,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // To-Do card matching the second image
-  Widget _buildToDoCard(Map<String, dynamic> todo) {
-    final isCompleted = todo['status'] == 'completed';
-
-    return GestureDetector(
-      onTap: isCompleted ? null : () => completeToDo(todo),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2D4A6F).withOpacity(0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title
-            Text(
-              todo['title'],
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                decoration: isCompleted
-                    ? TextDecoration.lineThrough
-                    : TextDecoration.none,
-                decorationColor: Colors.white.withOpacity(0.4),
-              ),
-            ),
-            const SizedBox(height: 6),
-
-            // Description
-            Text(
-              todo['description'],
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Footer with timestamp and icons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Today, 20 Sep 2025',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Reminder card matching the style
-  Widget _buildReminderCard(Map<String, dynamic> reminder) {
-    try {
-      final String timeStr = reminder['reminder_time'] as String;
-      final DateTime utcTime = DateTime.parse(timeStr).toUtc();
-      final DateTime localTime = utcTime.toLocal(); // IST
-
-      final now = DateTime.now();
-      final isToday =
-          localTime.year == now.year &&
-          localTime.month == now.month &&
-          localTime.day == now.day;
-      final isTomorrow =
-          localTime.year == now.add(const Duration(days: 1)).year &&
-          localTime.month == now.add(const Duration(days: 1)).month &&
-          localTime.day == now.add(const Duration(days: 1)).day;
-      final isPast = localTime.isBefore(now);
-
-      String dateLabel;
-      if (isToday) {
-        dateLabel = 'Today';
-      } else if (isTomorrow) {
-        dateLabel = 'Tomorrow';
-      } else if (isPast) {
-        dateLabel = DateFormat('MMM d').format(localTime);
-      } else {
-        dateLabel = DateFormat('MMM d').format(localTime);
-      }
-
-      final timeText = DateFormat('h:mm a').format(localTime);
-      final fullDateTime = '$dateLabel, $timeText';
-
-      return GestureDetector(
-        onTap: () => context.push('/reminders'),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isPast
-                ? const Color(0xFF2D4A6F).withOpacity(0.4)
-                : const Color(0xFF2D4A6F).withOpacity(0.6),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isPast
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.white.withOpacity(0.1),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      reminder['title'] ?? 'Reminder',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isPast
-                            ? Colors.white.withOpacity(0.6)
-                            : Colors.white,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: isPast
-                          ? Colors.grey.withOpacity(0.2)
-                          : const Color(0xFFF59E0B).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Icon(
-                      LucideIcons.bell,
-                      size: 14,
-                      color: isPast ? Colors.grey : const Color(0xFFF59E0B),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                reminder['description'] ?? 'No description',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withOpacity(isPast ? 0.4 : 0.6),
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.clock,
-                        size: 14,
-                        color: Colors.white.withOpacity(isPast ? 0.3 : 0.5),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        fullDateTime,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(isPast ? 0.3 : 0.5),
+                          child: const Icon(Icons.send, color: Colors.white),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error parsing reminder: $e | Data: $reminder');
-      return _buildErrorCard('Failed to load reminder');
-    }
-  }
-
-  Widget _buildErrorCard(String message) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(color: Colors.red, fontSize: 12),
-      ),
-    );
-  }
-
-  // Section header with title and "View all"
-  Widget _buildSectionHeader(String title, IconData icon, VoidCallback onTap) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            'View all',
-            style: TextStyle(
-              fontSize: 13,
-              color: const Color(0xFF3B82F6),
-              fontWeight: FontWeight.w500,
+                ),
+              ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSmallIconButton(IconData icon) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        ],
       ),
-      child: Icon(icon, size: 14, color: Colors.white.withOpacity(0.7)),
     );
   }
 }
