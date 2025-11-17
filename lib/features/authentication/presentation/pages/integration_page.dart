@@ -613,7 +613,7 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
                         child: Row(
                           children: [
                             GestureDetector(
-                              onTap: () => context.pop(),
+                              onTap: () => context.push('/other'),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -679,10 +679,7 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
                                   final integration = integrations[index];
                                   return GestureDetector(
                                     onTap: () {
-                                      if (integration.connected) {
-                                        _resetConnection(integration.id);
-                                      } else {
-                                        if (integration.id ==
+                                      if (integration.id ==
                                             'google-calendar') {
                                           _handleGoogleSignIn(integration);
                                         } else if (integration.id ==
@@ -694,7 +691,7 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
                                             'fireflies') {
                                           _showFirefliesKeyPopup();
                                         }
-                                      }
+                                      
                                     },
                                     child: Container(
                                       padding: const EdgeInsets.all(16),

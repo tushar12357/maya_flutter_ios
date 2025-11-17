@@ -1,11 +1,22 @@
+// profile_page.dart - FIXED VERSION
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:get_it/get_it.dart';
+
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
-import '../../../authentication/presentation/bloc/auth_state.dart';
+
+final getIt = GetIt.instance;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,23 +30,115 @@ class _ProfilePageState extends State<ProfilePage> {
   final lastNameController = TextEditingController();
   final phoneController = TextEditingController();
 
+  // ✅ Single flag to prevent any API calls during avatar upload
+  bool _isUploadingAvatar = false;
+  String? _avatarUrl;
   Map<String, dynamic>? userData;
+
+  Future<Map<String, dynamic>>? _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    _userFuture = getIt<ApiClient>().getCurrentUser().then((res) {
+      if (res['statusCode'] == 200) {
+        userData = res['data']['data'];
+        firstNameController.text = userData?['first_name'] ?? '';
+        lastNameController.text = userData?['last_name'] ?? '';
+        phoneController.text = userData?['phone_number'] ?? '';
+        _avatarUrl = userData?['profile_image_url'];
+      }
+      return res;
+    });
+    setState(() {});
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    // ✅ Prevent multiple clicks
+    if (_isUploadingAvatar) return;
+
+    setState(() => _isUploadingAvatar = true);
+
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) {
+        setState(() => _isUploadingAvatar = false);
+        return;
+      }
+
+      final CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        compressQuality: 90,
+        compressFormat: ImageCompressFormat.jpg,
+      );
+
+      if (croppedFile == null) {
+        setState(() => _isUploadingAvatar = false);
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File(croppedFile.path).copySync(
+        "${tempDir.path}/maya_${DateTime.now().millisecondsSinceEpoch}.jpg",
+      );
+
+      // ✅ Upload avatar - ONLY ONE API CALL
+      final res = await getIt<ApiClient>().uploadUserAvatar(file);
+
+      if (res['statusCode'] == 200) {
+        setState(() {
+          _avatarUrl = res['data']['data']['profile_image_url'] ?? 
+                       res['data']['data']['avatar'];
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Profile picture updated!")),
+          );
+        }
+
+        // ✅ Refresh user data after successful upload
+        await _loadUser();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['data']?['message'] ?? "Upload failed"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isUploadingAvatar = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: getIt<ApiClient>().getCurrentUser(),
+      future: _userFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _loadingView();
-        }
-
-        if (snapshot.hasData && snapshot.data?['statusCode'] == 200) {
-          userData = snapshot.data!['data']['data'];
-
-          firstNameController.text = userData?['first_name'] ?? '';
-          lastNameController.text = userData?['last_name'] ?? '';
-          phoneController.text = userData?['phone_number'] ?? '';
         }
 
         return Scaffold(
@@ -70,6 +173,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMainContent() {
+    final fullName = '${firstNameController.text} ${lastNameController.text}'.trim();
+    final displayName = fullName.isEmpty ? 'User' : fullName;
+    final email = userData?['email'] ?? '';
+    final avatarLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+
     return Column(
       children: [
         // Header
@@ -86,27 +194,18 @@ class _ProfilePageState extends State<ProfilePage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Profile',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const Spacer(),
             ],
           ),
         ),
-
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -114,36 +213,152 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 const SizedBox(height: 8),
 
-                // Profile Header (Avatar + Name)
-                _buildProfileHeader(),
+                // Profile Header
+                Row(
+                  children: [
+                    // ✅ Avatar with proper upload state
+                    GestureDetector(
+                      onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Fallback gradient circle
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF2A57E8), Color(0xFF1D4ED8)],
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                avatarLetter,
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Remote avatar
+                          if (!_isUploadingAvatar &&
+                              _avatarUrl != null &&
+                              _avatarUrl!.isNotEmpty)
+                            ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: _avatarUrl!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white54,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                errorWidget: (_, __, ___) => Center(
+                                  child: Text(
+                                    avatarLetter,
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Upload progress ring
+                          if (_isUploadingAvatar)
+                            const Positioned.fill(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    // Name + Email
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            email,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color.fromRGBO(189, 189, 189, 1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Change Picture Button
+                    TextButton(
+                      onPressed: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                      child: _isUploadingAvatar
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Change Picture',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
 
                 const SizedBox(height: 24),
 
-                // Editable Personal Information
+                // Personal Information Card
                 _personalInformationCard(),
+
                 const SizedBox(height: 24),
 
-                // Save Button
+                // ✅ Save Changes Button - disabled during avatar upload
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _saveUpdatedProfile,
+                    onPressed: _isUploadingAvatar ? null : _saveUpdatedProfile,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4B5563),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
+                      disabledBackgroundColor: const Color(0xFF4B5563).withOpacity(0.5),
                     ),
-                    child: const Text(
-                      'Save Changes',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
 
@@ -158,24 +373,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text(
-                      'Change Password',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Change Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
 
-                const SizedBox(height: 12),
-
-                // Delete Account Button
-                const SizedBox(height: 24),
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -197,98 +401,15 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           const Text(
             'Personal information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 16),
-
           _editableField("First Name", firstNameController),
           _editableField("Last Name", lastNameController),
           _editableField("Phone Number", phoneController),
-
           _buildInfoRow("Email", userData?['email'] ?? ''),
         ],
       ),
-    );
-  }
-
-  Widget _buildProfileHeader() {
-    final name = firstNameController.text.isNotEmpty
-        ? firstNameController.text
-        : 'User';
-    final email = userData?['email'] ?? '';
-    final avatarLetter = name.substring(0, 1).toUpperCase();
-
-    return Row(
-      children: [
-        // Gradient Avatar
-        Container(
-          width: 80,
-          height: 80,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2A57E8), Color(0xFF1D4ED8)],
-            ),
-          ),
-          child: Center(
-            child: Text(
-              avatarLetter,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                email,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color.fromRGBO(189, 189, 189, 1),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        TextButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Change picture functionality')),
-            );
-          },
-          child: const Text(
-            'Change Picture',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -299,54 +420,17 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(color: Colors.white70)),
-
           const SizedBox(height: 6),
-
           TextField(
             controller: controller,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white10,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _accountInformationCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D4A6F).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Account information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildInfoRow("User ID", 'USR-${userData?['ID']}'),
-          _buildInfoRow("Member Since", _formatDate(userData?['CreatedAt'])),
-          _buildInfoRow("Account Type", 'Premium'),
-          _buildInfoRow("Status", 'Active'),
         ],
       ),
     );
@@ -361,11 +445,7 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
             ),
           ),
           Expanded(
@@ -379,54 +459,57 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  String _formatDate(String? createdAt) {
-    if (createdAt == null) return "N/A";
-    try {
-      final dateTime = DateTime.parse(createdAt);
-      return '${DateFormat('MMM dd, h:mm a').format(dateTime)} IST';
-    } catch (_) {
-      return "N/A";
-    }
-  }
-
+  // ✅ Only updates text fields (firstName, lastName, phoneNumber)
   Future<void> _saveUpdatedProfile() async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Updating profile...")));
-
-    final updatedFields = <String, dynamic>{};
-
-    // Compare with current user data and only add changed fields
-    if (firstNameController.text.trim() != (userData?['first_name'] ?? '')) {
-      updatedFields['first_name'] = firstNameController.text.trim();
-    }
-    if (lastNameController.text.trim() != (userData?['last_name'] ?? '')) {
-      updatedFields['last_name'] = lastNameController.text.trim();
-    }
-    if (phoneController.text.trim() != (userData?['phone_number'] ?? '')) {
-      updatedFields['phone_number'] = phoneController.text.trim();
-    }
-
-    if (updatedFields.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("No changes made.")));
+    // Block if avatar upload is in progress
+    if (_isUploadingAvatar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please wait for avatar upload to complete")),
+      );
       return;
     }
 
-    final result = await getIt<ApiClient>().updateUserProfilePartial(
-      updatedFields,
+    String? firstName;
+    String? lastName;
+    String? phoneNumber;
+
+    if (firstNameController.text.trim() != (userData?['first_name'] ?? '')) {
+      firstName = firstNameController.text.trim();
+    }
+    if (lastNameController.text.trim() != (userData?['last_name'] ?? '')) {
+      lastName = lastNameController.text.trim();
+    }
+    if (phoneController.text.trim() != (userData?['phone_number'] ?? '')) {
+      phoneNumber = phoneController.text.trim();
+    }
+
+    if (firstName == null && lastName == null && phoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No changes made.")),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Updating profile...")));
+
+    final res = await getIt<ApiClient>().updateUserProfile(
+      firstName: firstName,
+      lastName: lastName,
+      phoneNumber: phoneNumber,
     );
 
-    if (result['statusCode'] == 200) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Profile updated!")));
-      setState(() {});
+    if (res['statusCode'] == 200) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Profile updated!")));
+      await _loadUser();
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Update failed")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['data']?['message'] ?? "Update failed"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -446,91 +529,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SafeArea(
-            child: Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF111827),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Color(0x1AFFFFFF)),
-        ),
-        contentPadding: const EdgeInsets.all(16),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 48),
-            SizedBox(height: 16),
-            Text(
-              'Delete Account',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Are you sure you want to delete your account?\n\nThis action cannot be undone.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color.fromRGBO(189, 189, 189, 1),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0x1AFFFFFF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Account deleted!')));
-              context.read<AuthBloc>().add(LogoutRequested());
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0x1AFF4444),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Delete',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFEF4444),
-                ),
-              ),
-            ),
+            child: Center(child: CircularProgressIndicator(color: Colors.white)),
           ),
         ],
       ),
@@ -544,30 +543,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      barrierDismissible: true,
       builder: (dialogContext) {
         Future<void> submit() async {
-          if (oldPassController.text.isEmpty ||
-              newPassController.text.isEmpty ||
-              confirmPassController.text.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please fill all fields")),
-            );
+          if (oldPassController.text.isEmpty || newPassController.text.isEmpty || confirmPassController.text.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
             return;
           }
-
           if (newPassController.text != confirmPassController.text) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Passwords do not match")),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
             return;
           }
 
-          Navigator.of(dialogContext).pop(); // close UI first
-
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("Changing password...")));
+          Navigator.of(dialogContext).pop();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Changing password...")));
 
           final res = await getIt<ApiClient>().changePassword(
             oldPassword: oldPassController.text,
@@ -576,92 +564,46 @@ class _ProfilePageState extends State<ProfilePage> {
           );
 
           if (res['statusCode'] == 200) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Password changed successfully!")),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password changed successfully!")));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  res['data']?['message'] ?? "Password change failed",
-                ),
-              ),
+              SnackBar(content: Text(res['data']?['message'] ?? "Password change failed")),
             );
           }
         }
 
         return AlertDialog(
           backgroundColor: const Color(0xFF111827).withOpacity(0.94),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: const BorderSide(color: Color(0x1AFFFFFF)),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Color(0x1AFFFFFF))),
           contentPadding: const EdgeInsets.all(20),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "Change Password",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-
+              const Text("Change Password", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 20),
-
               _passwordField("Old Password", oldPassController),
               const SizedBox(height: 12),
               _passwordField("New Password", newPassController),
               const SizedBox(height: 12),
               _passwordField("Confirm Password", confirmPassController),
-
               const SizedBox(height: 24),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0x1AFFFFFF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0x1AFFFFFF), borderRadius: BorderRadius.circular(12)),
+                      child: const Text("Cancel", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
                   TextButton(
                     onPressed: submit,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A57E8),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        "Update",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0xFF2A57E8), borderRadius: BorderRadius.circular(12)),
+                      child: const Text("Update", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
                 ],
@@ -677,10 +619,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -690,10 +629,7 @@ class _ProfilePageState extends State<ProfilePage> {
             filled: true,
             fillColor: Colors.white10,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
       ],

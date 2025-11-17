@@ -10,23 +10,23 @@ import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/authentication/presentation/bloc/auth_event.dart';
 import 'injection_container.dart' as di;
 
-// Background message handler
+// Background handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp();   // ← iOS automatically uses plist
   print("Handling a background message: ${message.messageId}");
-  // Add custom logic for background notifications, e.g., saving to local storage
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.init();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize Firebase Messaging
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   final FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  // Request permission for notifications (iOS)
   NotificationSettings settings = await messaging.requestPermission(
     alert: true,
     badge: true,
@@ -34,7 +34,6 @@ void main() async {
   );
   print('User granted permission: ${settings.authorizationStatus}');
 
-  // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(MyApp());
@@ -56,19 +55,21 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _authBloc = di.sl<AuthBloc>();
     _router = AppRouter.createRouter(_authBloc);
-
-    // Initialize Firebase Messaging listeners
-    _setupFirebaseMessaging();
-
     _authBloc.add(AppStarted());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _setupFirebaseMessaging();
+  }
+
   void _setupFirebaseMessaging() {
-    // Handle foreground messages
+    // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Received foreground message: ${message.notification?.title}');
-      if (message.notification != null) {
-        // Display a snackbar or dialog for foreground notifications
+
+      if (message.notification != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -79,27 +80,34 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    // Handle notification when app is opened from a terminated state
-    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
-      if (message != null && message.data.containsKey('route')) {
-        print('App opened from terminated state: ${message.messageId}');
+    // App opened from terminated
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
         _handleNotificationNavigation(message);
       }
     });
 
-    // Handle notification when app is in background but opened
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('App opened from background: ${message.messageId}');
+    // App opened from background
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _handleNotificationNavigation(message);
+    });
+
+    // Token refresh
+    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+      print("FCM Token refreshed: $token");
+    });
+
+    // iOS APNs token
+    FirebaseMessaging.instance.getAPNSToken().then((apns) {
+      print("APNs Token: $apns");
     });
   }
 
   void _handleNotificationNavigation(RemoteMessage message) {
-    // Extract route from notification data
-    final String? route = message.data['route'];
+    final String? route = message.data["route"];
     if (route != null && mounted) {
-      print('Navigating to route: $route');
-      context.go(route); // Use go_router to navigate
+      print("Navigating to: $route");
+      context.go(route);
     }
   }
 
@@ -110,8 +118,6 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp.router(
         title: 'Maya App',
         theme: AppTheme.lightTheme,
-        // darkTheme: AppTheme.darkTheme, // Added dark theme
-        // themeMode: ThemeMode.system, // Follow OS dark/light mode
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),

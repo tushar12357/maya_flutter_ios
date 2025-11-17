@@ -90,6 +90,9 @@ class _HomePageState extends State<HomePage> {
   String? _locationStatus;
   String? _userFirstName;
   String? _userLastName;
+StreamSubscription<Position>? _locationSubscription;
+Position? _lastSentPosition;
+bool _isSendingLocation = false;
 
   // -----------------------------------------------------------------------
   // initState – wiring only
@@ -106,8 +109,79 @@ class _HomePageState extends State<HomePage> {
     fetchReminders();
     fetchToDos();
     fetchTasks();
+    _startLiveLocationTracking();
+
   }
 
+  @override
+void dispose() {
+  _locationSubscription?.cancel();
+  super.dispose();
+}
+
+
+
+void _startLiveLocationTracking() async {
+  // Ensure permissions first
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    return; // You already handle dialogs elsewhere
+  }
+
+  _locationSubscription = Geolocator.getPositionStream(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5, // meters — triggers on slight movement
+    ),
+  ).listen((Position newPos) async {
+    // If it's the first reading
+    if (_lastSentPosition == null) {
+      _lastSentPosition = newPos;
+      await _sendLocationUpdate(newPos);
+      return;
+    }
+
+    // Check if changed even slightly (>= 5 meters)
+    final distance = Geolocator.distanceBetween(
+      _lastSentPosition!.latitude,
+      _lastSentPosition!.longitude,
+      newPos.latitude,
+      newPos.longitude,
+    );
+
+    if (distance >= 5) {
+      _lastSentPosition = newPos;
+      await _sendLocationUpdate(newPos);
+    }
+  });
+}
+
+
+Future<void> _sendLocationUpdate(Position pos) async {
+  if (_isSendingLocation) return;
+  _isSendingLocation = true;
+
+  try {
+    final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+    final country = _getUserCountry();
+
+    final payload = {
+      "latitude": pos.latitude,
+      "longitude": pos.longitude,
+      "timezone": timezoneInfo.identifier,
+      "country": country,
+    };
+
+    await _apiClient.updateUserProfilePartial(payload);
+    debugPrint("📍 Live location updated: $payload");
+
+  } catch (e) {
+    debugPrint("Live location update error: $e");
+  } finally {
+    _isSendingLocation = false;
+  }
+}
   // -----------------------------------------------------------------------
   // 1. Notification plumbing
   // -----------------------------------------------------------------------

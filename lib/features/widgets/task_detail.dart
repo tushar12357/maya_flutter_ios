@@ -117,17 +117,46 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       return 'N/A';
     }
   }
+String _prettyPrintJson(dynamic value) {
+  try {
+    dynamic parsed = value;
 
-  String _prettyPrintJson(dynamic value) {
-    try {
-      dynamic parsed = value;
-      if (value is String) parsed = jsonDecode(value);
-      const encoder = JsonEncoder.withIndent('  ');
-      return encoder.convert(parsed);
-    } catch (_) {
-      return value.toString();
+    if (value is String) parsed = jsonDecode(value);
+
+    if (parsed is Map) {
+      return parsed.entries.map((e) {
+        return "${_humanizeKey(e.key.toString())}: ${_humanizeValue(e.value)}";
+      }).join("\n");
     }
+
+    if (parsed is List) {
+      return parsed.asMap().entries.map((e) {
+        return "• ${_humanizeValue(e.value)}";
+      }).join("\n");
+    }
+
+    return parsed.toString();
+  } catch (_) {
+    return value.toString();
   }
+}
+
+String _humanizeKey(String key) {
+  // Convert snake_case, camelCase → Title Case
+  key = key.replaceAll('_', ' ');
+  key = key.replaceAllMapped(RegExp(r'[A-Z]'), (m) => " ${m.group(0)}");
+  return key.trim()[0].toUpperCase() + key.trim().substring(1);
+}
+
+String _humanizeValue(dynamic value) {
+  if (value == null) return "N/A";
+  if (value is Map || value is List) return jsonEncode(value);
+  return value.toString();
+}
+
+
+
+
 
   // -----------------------------------------------------------------
   @override

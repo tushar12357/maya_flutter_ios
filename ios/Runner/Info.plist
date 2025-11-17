@@ -23,25 +23,25 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>com.ravan.maya</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q</string>
-        </array>
-    </dict>
-</array>
-
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.ravan.maya</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>FirebaseAppDelegateProxyEnabled</key>
-	<false/>
+	
 	<key>GIDClientID</key>
 	<string>452755436213-kls0a46r5v4sido47mlvccr17s4uu90q.apps.googleusercontent.com</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
@@ -58,13 +58,16 @@
 	<string>This app needs location access for Bluetooth scanning.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Maya needs microphone access to listen to your voice and have a conversation.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Maya wants to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to your photo library to select or upload photos.</string>
+	<string>Maya needs access to your photos so you can choose a profile picture.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>fetch</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -83,8 +86,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-<false/>
+
+	<key>NSUserTrackingUsageDescription</key>
+<string>This allows us to deliver personalized notifications.</string>
+
+<key>FirebaseAppDelegateProxyEnabled</key>
+<true/>
 
 </dict>
 </plist>

@@ -1,6 +1,7 @@
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_event.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -17,6 +18,7 @@ class User {
   final String phone_number;
   final String apiKey;
   final String deviceId;
+  final String profile_image_url;
 
   User({
     this.id,
@@ -26,6 +28,7 @@ class User {
     required this.phone_number,
     required this.apiKey,
     required this.deviceId,
+    required this.profile_image_url,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -39,6 +42,7 @@ class User {
       phone_number: data['phone_number'] as String,
       apiKey: data['api_key'] as String,
       deviceId: data['device_id'] as String,
+      profile_image_url: data['profile_image_url'] as String,
     );
   }
 
@@ -155,87 +159,110 @@ class _OtherPageState extends State<OtherPage> {
   // --------------------------------------------------------------
   // PROFILE SECTION – uses real user data
   // --------------------------------------------------------------
-  Widget _buildProfileSection(BuildContext context) {
-    final name = _user?.fullName ;
-    final email = _user?.email;
-    final avatarLetter = _user?.initials;
+Widget _buildProfileSection(BuildContext context) {
+  final name = _user?.fullName ?? '';
+  final email = _user?.email ?? '';
+  final avatarUrl = _user?.profile_image_url;
+  final initials = _user?.initials ?? 'U';
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D4A6F).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: const Color(0xFF2D4A6F).withOpacity(0.6),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withOpacity(0.1)),
+    ),
+    child: Row(
+      children: [
+        // ────────────────────── PROFILE AVATAR WITH IMAGE + FALLBACK ──────────────────────
+        ClipOval(
+          child: Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF2A57E8), Color(0xFF1D4ED8)],
               ),
             ),
-            child: Center(
-              child: Text(
-                avatarLetter ?? '',
+            child: avatarUrl != null && avatarUrl.isNotEmpty
+                ? CachedNetworkImage(                  // ← Recommended for performance
+                    imageUrl: avatarUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
                 style: const TextStyle(
-                  fontSize: 28,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name ?? '',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                email,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color.fromRGBO(189, 189, 189, 1),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  email ?? '',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color.fromRGBO(189, 189, 189, 1),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton(
-            onPressed: () => context.go('/profile'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF2A57E8),
-              side: const BorderSide(color: Color(0xFF2A57E8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
               ),
-            ),
-            child: const Text(
-              'Edit',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ],
+          ),
+        ),
+        OutlinedButton(
+          onPressed: () => context.go('/profile'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF2A57E8),
+            side: const BorderSide(color: Color(0xFF2A57E8)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
+          child: const Text(
+            'Edit',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  );
+}
   // --------------------------------------------------------------
   // FEATURE TILES (vertical list)
   // --------------------------------------------------------------

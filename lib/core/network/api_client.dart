@@ -1,18 +1,35 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:Maya/core/services/storage_service.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_constants.dart';
 
+import 'package:http_parser/http_parser.dart';
 final getIt = GetIt.instance;
 
 class ApiClient {
   late final Dio _publicDio;
   late final Dio _protectedDio;
+  late final Dio _multipartDio;
 
   ApiClient(Dio publicDio, Dio protectedDio) {
     _publicDio = publicDio;
     _protectedDio = protectedDio;
+    
+    // ✅ CRITICAL: Multipart Dio with NO Content-Type preset
+    _multipartDio = Dio(
+      BaseOptions(
+        baseUrl: AppConstants.protectedUrl,
+        connectTimeout: Duration(milliseconds: AppConstants.connectionTimeout),
+        receiveTimeout: Duration(milliseconds: AppConstants.receiveTimeout),
+        headers: {
+          'Accept': 'application/json',
+          // ❌ DO NOT SET Content-Type here - Dio will auto-generate with boundary
+        },
+      ),
+    );
 
     // Configure public Dio instance
     _publicDio.options.baseUrl = AppConstants.baseUrl;
@@ -34,6 +51,63 @@ class ApiClient {
     );
     _protectedDio.options.headers['Content-Type'] = 'application/json';
 
+    // ✅ Multipart interceptor - ONLY adds Authorization, NO Content-Type
+    _multipartDio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await getIt<StorageService>().getAccessToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          
+          // ✅ Ensure Dio auto-generates Content-Type with boundary
+          // Remove any preset Content-Type so FormData can set it properly
+          if (options.data is FormData) {
+            options.headers.remove('Content-Type');
+          }
+          
+          return handler.next(options);
+        },
+        onError: (DioException error, ErrorInterceptorHandler handler) async {
+          // ❌ NEVER retry multipart uploads - they break on retry
+          if (error.requestOptions.path.contains('/auth/users/update')) {
+            return handler.next(error);
+          }
+
+          if (error.response?.statusCode == 401) {
+            final encodedRefreshToken =
+                await getIt<StorageService>().getRefreshToken();
+
+            if (encodedRefreshToken != null) {
+              final response = await refreshToken(encodedRefreshToken);
+
+              if (response['statusCode'] == 200) {
+                final tokenData = response['data']['data'];
+
+                await getIt<StorageService>().saveAccessToken(tokenData['access_token']);
+                await getIt<StorageService>().saveRefreshToken(tokenData['refresh_token']);
+                await getIt<StorageService>().saveTokenExpiryDate(tokenData['expiry_duration']);
+
+                final RequestOptions requestOptions = error.requestOptions;
+                requestOptions.headers['Authorization'] =
+                    'Bearer ${tokenData['access_token']}';
+
+                final cloned = await _multipartDio.fetch(requestOptions);
+                return handler.resolve(cloned);
+              }
+            }
+          }
+
+          return handler.next(error);
+        },
+      ),
+    );
+
+    // Debug logs optional
+    _multipartDio.interceptors.add(
+      LogInterceptor(requestBody: true, responseBody: true),
+    );
+
     // Add interceptors for both instances
     _publicDio.interceptors.add(
       LogInterceptor(requestBody: true, responseBody: true),
@@ -54,26 +128,35 @@ class ApiClient {
               return handler.next(options);
             },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
+          // ❌ Do NOT retry profile update endpoint
+          if (error.requestOptions.path.contains('/auth/users/update')) {
+            return handler.next(error);
+          }
+
           if (error.response?.statusCode == 401) {
-            final encodedRefreshToken = await getIt<StorageService>()
-                .getRefreshToken();
+            final encodedRefreshToken =
+                await getIt<StorageService>().getRefreshToken();
+
             if (encodedRefreshToken != null) {
               final response = await refreshToken(encodedRefreshToken);
+
               if (response['statusCode'] == 200) {
                 final tokenData = response['data']['data'];
-                await getIt<StorageService>().saveAccessToken(
-                  tokenData['access_token'],
-                );
-                await getIt<StorageService>().saveRefreshToken(
-                  tokenData['refresh_token'],
-                );
-                await getIt<StorageService>().saveTokenExpiryDate(
-                  tokenData['expiry_duration'],
-                );
-                return handler.resolve(error.response!);
+
+                await getIt<StorageService>().saveAccessToken(tokenData['access_token']);
+                await getIt<StorageService>().saveRefreshToken(tokenData['refresh_token']);
+                await getIt<StorageService>().saveTokenExpiryDate(tokenData['expiry_duration']);
+
+                final RequestOptions requestOptions = error.requestOptions;
+                requestOptions.headers['Authorization'] =
+                    'Bearer ${tokenData['access_token']}';
+
+                final cloned = await _protectedDio.fetch(requestOptions);
+                return handler.resolve(cloned);
               }
             }
           }
+
           return handler.next(error);
         },
       ),
@@ -129,6 +212,7 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
+  // ✅ For text-only updates (no file)
   Future<Map<String, dynamic>> updateUserProfilePartial(
     Map<String, dynamic> fieldsToUpdate,
   ) async {
@@ -139,13 +223,12 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
-    Future<Map<String, dynamic>> getIntegrationStatus() async {
+  Future<Map<String, dynamic>> getIntegrationStatus() async {
     final response = await _protectedDio.get('/auth/integrations/status');
     print('getCurrentUser response: ${response.data}');
     print('getCurrentUser statusCode: ${response.statusCode}');
     return {'statusCode': response.statusCode, 'data': response.data};
   }
-
 
   // Google Sign-In API
   Future<Map<String, dynamic>> googleLogin(Map<String, dynamic> payload) async {
@@ -170,17 +253,14 @@ class ApiClient {
   }
 
   // Google Access Token Mobile API
- Future<Map<String, dynamic>> googleAccessTokenMobile({
+  Future<Map<String, dynamic>> googleAccessTokenMobile({
     required int userId,
     required String authCode,
   }) async {
     final response = await get(
-      // _protectedDio,
       _publicDio,
-      // '/productivity/callback/google',
       '/productivity/google/oauth/callback',
       queryParameters: {'code':authCode,'state':userId}
-      // data: {'user_id': userId, 'server_auth_code': authCode},
     );
 
     return {'statusCode': response.statusCode, 'data': response.data};
@@ -190,8 +270,8 @@ class ApiClient {
   Future<Map<String, dynamic>> fetchTasks({int page=1, String? status}) async {
     final response = await get(
       _protectedDio,
-    '/thunder/get-tool-call-sessions?page=$page',
-    queryParameters: {'status': status},
+      '/thunder/get-tool-call-sessions?page=$page',
+      queryParameters: {'status': status},
     );
     print('fetchTasks response: ${response.data}');
     print('fetchTasks statusCode: ${response.statusCode}');
@@ -339,7 +419,6 @@ class ApiClient {
     DateTime? endDate,
     String? timeFilter,
   }) async {
-    // Build query string
     final Map<String, dynamic> query = {};
     if (startDate != null) {
       query['start_date'] = DateFormat('yyyy-MM-dd').format(startDate);
@@ -507,7 +586,6 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
-
   Future<Map<String, dynamic>> setMicVolume(int level) async {
     final payload = prepareSetMicVolumePayload(level);
     final options = Options(headers: {'X-Device-ID': 'maya-india-26b'});
@@ -558,7 +636,7 @@ class ApiClient {
     return prepareMqttPublishPayload('{"action":"get_speaker_volume"}', 2, false);
   }
 
-   Map<String, dynamic> prepareSetMicVolumePayload(int level) {
+  Map<String, dynamic> prepareSetMicVolumePayload(int level) {
     return prepareMqttPublishPayload(
       '{"action":"set_mic_volume","level":$level}',
       2,
@@ -575,8 +653,7 @@ class ApiClient {
     );
   }
 
-
-    Future<Map<String, dynamic>> rebootDevice() async {
+  Future<Map<String, dynamic>> rebootDevice() async {
     final payload = prepareRebootPayload();
     final options = Options(headers: {'X-Device-ID': 'maya-india-26b'});
     final response = await _publicDio.post(
@@ -603,8 +680,7 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
-
-   Map<String, dynamic> prepareRebootPayload() {
+  Map<String, dynamic> prepareRebootPayload() {
     return prepareMqttPublishPayload(
       '{"action":"reboot"}',
       2,
@@ -621,7 +697,7 @@ class ApiClient {
     );
   }
 
-    // Set Wake Word API
+  // Set Wake Word API
   Future<Map<String, dynamic>> setWakeWord(String mode) async {
     final payload = prepareSetWakeWordPayload(mode);
     final options = Options(headers: {'X-Device-ID': 'maya-india-26b'});
@@ -693,160 +769,224 @@ class ApiClient {
     );
   }
 
-
-Future<Map<String, dynamic>> getCurrentUser() async {
+  Future<Map<String, dynamic>> getCurrentUser() async {
     final response = await _protectedDio.get('/auth/users/me');
     print('getCurrentUser response: ${response.data}');
     print('getCurrentUser statusCode: ${response.statusCode}');
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
-
   Future<Map<String, dynamic>> updateNotificationPreferences({
-  required bool emailNotifications,
-  required bool pushNotifications,
-  required bool smsNotifications,
-  required bool deviceNotifications,
-  required bool callNotifications,
-}) async {
-  final payload = _buildNotificationPayload(
-    email: emailNotifications,
-    push: pushNotifications,
-    sms: smsNotifications,
-    device: deviceNotifications,
-    call: callNotifications,
-  );
+    required bool emailNotifications,
+    required bool pushNotifications,
+    required bool smsNotifications,
+    required bool deviceNotifications,
+    required bool callNotifications,
+  }) async {
+    final payload = _buildNotificationPayload(
+      email: emailNotifications,
+      push: pushNotifications,
+      sms: smsNotifications,
+      device: deviceNotifications,
+      call: callNotifications,
+    );
 
-  final response = await _protectedDio.patch(
-    '/auth/users/notification-preferences',
-    data: payload,
-  );
+    final response = await _protectedDio.patch(
+      '/auth/users/notification-preferences',
+      data: payload,
+    );
 
-  return {'statusCode': response.statusCode, 'data': response.data};
-}
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
 
   Map<String, bool> _buildNotificationPayload({
-  required bool email,
-  required bool push,
-  required bool sms,
-  required bool device,
-  required bool call,
-}) {
-  return {
-    'email_notifications': email,
-    'push_notifications': push,
-    'sms_notifications': sms,
-    'device_notifications': device,
-    'call_notifications': call,
-  };
-}
-
-  /// PATCH /api/protected/auth/users/update
- Future<Map<String, dynamic>> updateUserProfile({
-  required String firstName,
-  required String lastName,
-  required String fcmToken,
-  required double latitude,
-  required double longitude,
-  required String timezone,
-  required String phoneNumber,
-}) async {
-  final payload = prepareUpdateUserProfilePayload(
-    firstName: firstName,
-    lastName: lastName,
-    fcmToken: fcmToken,
-    latitude: latitude,
-    longitude: longitude,
-    timezone: timezone,
-    phoneNumber: phoneNumber,
-  );
-
-  final response = await _protectedDio.patch('/auth/users/update', data: payload);
-  return {'statusCode': response.statusCode, 'data': response.data};
-}
+    required bool email,
+    required bool push,
+    required bool sms,
+    required bool device,
+    required bool call,
+  }) {
+    return {
+      'email_notifications': email,
+      'push_notifications': push,
+      'sms_notifications': sms,
+      'device_notifications': device,
+      'call_notifications': call,
+    };
+  }
 
   Map<String, dynamic> prepareSaveLocationPayload(
-  double latitude,
-  double longitude,
-  String timezone,
-) {
-  return {
-    "latitude": latitude,
-    "longitude": longitude,
-    "timezone": timezone,
-  };
+    double latitude,
+    double longitude,
+    String timezone,
+  ) {
+    return {
+      "latitude": latitude,
+      "longitude": longitude,
+      "timezone": timezone,
+    };
+  }
+
+  Map<String, dynamic> prepareUpdateUserProfilePayload({
+    required String firstName,
+    required String lastName,
+    required String fcmToken,
+    required double latitude,
+    required double longitude,
+    required String timezone,
+    required String phoneNumber,
+  }) {
+    return {
+      "first_name": firstName,
+      "last_name": lastName,
+      "fcm_token": fcmToken,
+      "latitude": latitude,
+      "longitude": longitude,
+      "timezone": timezone,
+      "phone_number": phoneNumber,
+    };
+  }
+
+  Future<Map<String,dynamic>> getGenerations() async {
+    final response = await _protectedDio.get('/productivity/generations');
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+  Future<Map<String,dynamic>> updateGenerationStatus(String generationId, String action)async{
+    final response= await _protectedDio.patch('/productivity/generations/status',
+    data:{'generation_id': generationId, 'action': action});
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
+  Future<Map<String, dynamic>> saveFirefliesKey({
+    required int userId,
+    required String apiKey,
+  }) async {
+    final response = await _protectedDio.post(
+      '/auth/fireflies/save-key',
+      data: {
+        'fireflies_api_key': apiKey,
+      },
+    );
+
+    return {
+      'statusCode': response.statusCode,
+      'data': response.data,
+    };
+  }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _protectedDio.post(
+      '/auth/change-password',
+      data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      },
+    );
+
+    return {
+      'statusCode': response.statusCode,
+      'data': response.data,
+    };
+  }
+
+  // ✅ Avatar upload only - uses multipart Dio
+  Future<Map<String, dynamic>> uploadUserAvatar(File imageFile) async {
+    return updateUserProfile(avatar: imageFile);
+  }
+
+  // ✅ Main update function - intelligently chooses multipart vs JSON
+  Future<Map<String, dynamic>> updateUserProfile({
+    File? avatar,
+    String? firstName,
+    String? lastName,
+    String? phoneNumber,
+  }) async {
+    try {
+      // ✅ If there's a file, use multipart with _multipartDio
+      if (avatar != null) {
+        final Map<String, dynamic> map = {};
+
+        // Add text fields if provided
+        if (firstName != null) map['first_name'] = firstName;
+        if (lastName != null) map['last_name'] = lastName;
+        if (phoneNumber != null) map['phone_number'] = phoneNumber;
+
+        // Add file
+        final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        map['profile_image'] = await MultipartFile.fromFile(
+          avatar.path,
+          filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
+        );
+
+        final formData = FormData.fromMap(map);
+
+        print("📤 Uploading via multipart/form-data");
+        
+        // ✅ Use multipart Dio - NO manual Content-Type header
+        final response = await _multipartDio.patch(
+          '/auth/users/update',
+          data: formData,
+          onSendProgress: (sent, total) {
+            if (total != -1) {
+              print("Upload progress: ${(sent / total * 100).toStringAsFixed(0)}%");
+            }
+          },
+          options: Options(
+            headers: {
+              // ❌ DO NOT set Content-Type - Dio auto-generates with boundary
+            },
+          ),
+        );
+
+        return {
+          'statusCode': response.statusCode,
+          'data': response.data,
+        };
+      } 
+      // ✅ No file? Use regular JSON with _protectedDio
+      else {
+        final Map<String, dynamic> payload = {};
+        
+        if (firstName != null) payload['first_name'] = firstName;
+        if (lastName != null) payload['last_name'] = lastName;
+        if (phoneNumber != null) payload['phone_number'] = phoneNumber;
+
+        if (payload.isEmpty) {
+          return {
+            'statusCode': 400,
+            'data': {'message': 'No fields to update', 'success': false}
+          };
+        }
+
+        print("📤 Updating via application/json");
+
+        final response = await _protectedDio.patch(
+          '/auth/users/update',
+          data: payload,
+        );
+
+        return {
+          'statusCode': response.statusCode,
+          'data': response.data,
+        };
+      }
+    } on DioException catch (e) {
+      print("❌ Dio Exception: ${e.response?.data}");
+      print("❌ Status: ${e.response?.statusCode}");
+      return {
+        'statusCode': e.response?.statusCode ?? 500,
+        'data': e.response?.data ?? {'message': 'Network error'}
+      };
+    } catch (e) {
+      print("❌ Unexpected error: $e");
+      return {'statusCode': 500, 'data': {'message': e.toString()}};
+    }
+  }
 }
-
-/// Prepare payload for **updateUserProfile** (includes FCM token)
-Map<String, dynamic> prepareUpdateUserProfilePayload({
-  required String firstName,
-  required String lastName,
-  required String fcmToken,
-  required double latitude,
-  required double longitude,
-  required String timezone,
-  required String phoneNumber,
-}) {
-  return {
-    "first_name": firstName,
-    "last_name": lastName,
-    "fcm_token": fcmToken,
-    "latitude": latitude,
-    "longitude": longitude,
-    "timezone": timezone,
-    "phone_number": phoneNumber,
-  };
-}
-
-Future<Map<String,dynamic>> getGenerations() async {
-  final response = await _protectedDio.get('/productivity/generations');
-  return {'statusCode': response.statusCode, 'data': response.data};
-}
-
-Future<Map<String,dynamic>> updateGenerationStatus(String generationId, String action)async{
-  final response= await _protectedDio.patch('/productivity/generations/status',
-  data:{'generation_id': generationId, 'action': action});
-  return {'statusCode': response.statusCode, 'data': response.data};
-}
-
-Future<Map<String, dynamic>> saveFirefliesKey({
-  required int userId,
-  required String apiKey,
-}) async {
-  final response = await _protectedDio.post(
-    '/auth/fireflies/save-key',
-    data: {
-      'fireflies_api_key': apiKey,
-    },
-  );
-
-  return {
-    'statusCode': response.statusCode,
-    'data': response.data,
-  };
-}
-
-Future<Map<String, dynamic>> changePassword({
-  required String oldPassword,
-  required String newPassword,
-  required String confirmPassword,
-}) async {
-  final response = await _protectedDio.post(
-    '/auth/change-password',
-    data: {
-      'old_password': oldPassword,
-      'new_password': newPassword,
-      'confirm_password': confirmPassword,
-    },
-  );
-
-  return {
-    'statusCode': response.statusCode,
-    'data': response.data,
-  };
-}
-
-
-}
-
-

@@ -86,10 +86,22 @@ _setupCallInterruptionHandler();
   }
 
   void _setupListeners() {
-    _session?.statusNotifier.addListener(_onStatusChange);
-    _session?.dataMessageNotifier.addListener(_onDataMessage);
-    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
-  }
+  _session?.statusNotifier.addListener(_onStatusChange);
+  _session?.dataMessageNotifier.addListener(_onDataMessage);
+  _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+
+  // 🔥 RAW ULTRAVOX TRANSCRIPT DEBUGGER
+  _session?.transcripts.forEach((t) {
+    print("🔻 RAW TRANSCRIPT FROM ULTRAVOX");
+    print("    text: '${t.text}'");
+    print("    isFinal: ${t.isFinal}");
+    print("    speaker: ${t.speaker}");
+    print("    timestamp: ${DateTime.now()}");
+    print("    full object: $t");
+    print("---------------------------------------------");
+  });
+}
+
 
   void _removeListeners() {
     try {
@@ -258,39 +270,69 @@ void _onDataMessage() {
   if (transcripts.isEmpty) return;
 
   final latest = transcripts.last;
+
+  print("🔵 DATA MESSAGE → RAW TRANSCRIPT EVENT:");
+  print("    text: '${latest.text}'");
+  print("    final: ${latest.isFinal}");
+  print("    speaker: ${latest.speaker}");
+  print("    chunk(before filters): $_currentTranscriptChunk");
+  print("    conversation(last): ${_conversation.isNotEmpty ? _conversation.last : "NONE"}");
+
   final text = latest.text.trim();
 
-  // Live partial transcript
+  // -----------------------------
+  // PARTIAL TRANSCRIPT
+  // -----------------------------
   if (!latest.isFinal) {
+    print("🟡 PARTIAL → '$text'");
+
     if (text.isNotEmpty && _currentTranscriptChunk != text) {
+      print("🟡 UPDATE PARTIAL CHUNK");
       setState(() {
         _currentTranscriptChunk = text;
         _shared.currentTranscript = text;
       });
       _scrollToBottom();
+    } else {
+      print("🟡 SKIP PARTIAL (Duplicate or Empty)");
     }
+
     return;
   }
 
-  // Final message
-  if (text.isEmpty) return;
+  // -----------------------------
+  // FINAL TRANSCRIPT
+  // -----------------------------
+  print("🟢 FINAL → '$text'");
+
+  if (text.isEmpty) {
+    print("⛔ FINAL EMPTY → SKIP");
+    return;
+  }
 
   final isUser = latest.speaker == Role.user;
   final speakerType = isUser ? 'user' : 'maya';
 
-  // Block typed message echo
+  print("🟢 Final speakerType = $speakerType");
+
+  // Prevent typed-message echo
   if (isUser && text == _lastSentText) {
+    print("⛔ BLOCK USER TYPED ECHO ($text)");
     _lastSentText = '';
     return;
   }
 
-  // Block duplicate messages
+  // Prevent duplicates
   if (_conversation.isNotEmpty) {
     final last = _conversation.last;
     if (last['type'] == speakerType && last['text'] == text) {
+      print("⛔ BLOCK DUPLICATE FINAL TRANSCRIPT");
       return;
     }
   }
+
+  // Add message to conversation
+  print("🟢 ADDING MESSAGE → $speakerType: $text");
 
   setState(() {
     _conversation.add({'type': speakerType, 'text': text});
@@ -300,8 +342,8 @@ void _onDataMessage() {
   });
 
   _scrollToBottom();
-}// Debug Message: HangUp Detection + Typing Sound
-  // ===================================================================
+}
+ // ===================================================================
   void _onDebugMessage() {
     if (_ignoreTranscripts || _isResetting) return;
 

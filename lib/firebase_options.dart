@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAdpSpBQZ5uqTcNhv4EMqU64xKS8e_ns1Y',
-    appId: '1:210611802225:android:f619479b0ef87a32e5cbd0',
+    appId: '1:210611802225:android:51ae7f37958222dde5cbd0',
     messagingSenderId: '210611802225',
     projectId: 'maya-app-cymake',
     storageBucket: 'maya-app-cymake.firebasestorage.app',
@@ -60,7 +60,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDYLneOggw4AxxGmTzqGv8CWiuXyq8oyLk',
-    appId: '1:210611802225:ios:9038e512da93ad0ae5cbd0',
+    appId: '1:210611802225:ios:c05d9d37d1eb900ee5cbd0',
     messagingSenderId: '210611802225',
     projectId: 'maya-app-cymake',
     storageBucket: 'maya-app-cymake.firebasestorage.app',
@@ -69,7 +69,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDYLneOggw4AxxGmTzqGv8CWiuXyq8oyLk',
-    appId: '1:210611802225:ios:2d81dbf68b37b818e5cbd0',
+    appId: '1:210611802225:ios:c05d9d37d1eb900ee5cbd0',
     messagingSenderId: '210611802225',
     projectId: 'maya-app-cymake',
     storageBucket: 'maya-app-cymake.firebasestorage.app',
@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'maya-app-cymake.firebasestorage.app',
     measurementId: 'G-YJ4SPT8TPS',
   );
+
 }
