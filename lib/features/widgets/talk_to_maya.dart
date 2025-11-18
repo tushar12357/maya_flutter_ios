@@ -355,7 +355,7 @@ void _onDataMessage() {
       return;
     }
 
-    final granted = await MicrophonePermissionHandler.requestPermission();
+    final granted = await MicPermissionService.request(context);
     if (!granted) return;
 
     setState(() {
