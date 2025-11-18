@@ -9,7 +9,9 @@ import 'core/theme/app_theme.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/authentication/presentation/bloc/auth_event.dart';
 import 'injection_container.dart' as di;
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tanstack_query/flutter_tanstack_query.dart';
+import 'core/network/query_client.dart'; // ← your file above
 // Background handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -36,8 +38,14 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  runApp(MyApp());
-}
+runApp(
+       QueryClientProvider(  // ← Important!
+        client: QueryClient(
+  cache: QueryCache.instance,
+  networkPolicy: NetworkPolicy.instance,),
+        child: const MyApp(),
+      ),
+  );}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});

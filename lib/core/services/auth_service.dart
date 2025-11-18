@@ -129,6 +129,7 @@ class AuthService {
       // Save new tokens
       await _storageService.saveAccessToken(tokenData['access_token']);
       await _storageService.saveRefreshToken(tokenData['refresh_token']);
+      await _storageService.saveSessionId(tokenData['session_id']);
       await _storageService.saveTokenExpiryDate(DateTime.now().add(Duration(seconds: tokenData['expiry_duration'])));
 
       print('✅ Token refreshed successfully');

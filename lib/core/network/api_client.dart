@@ -1,11 +1,15 @@
 import 'dart:io';
 
+
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:get_it/get_it.dart';
 import 'package:Maya/core/services/storage_service.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_constants.dart';
 
+import 'package:Maya/features/authentication/presentation/bloc/auth_bloc.dart';
+import 'package:Maya/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:http_parser/http_parser.dart';
 final getIt = GetIt.instance;
 
@@ -56,8 +60,14 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await getIt<StorageService>().getAccessToken();
+           final sessionId = await getIt<StorageService>().getSessionId();
+          print(sessionId);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
+          }
+
+           if (sessionId != null && options.path.contains('/auth/users/me')) {
+            options.headers['X-Session-Id'] = sessionId;
           }
           
           // ✅ Ensure Dio auto-generates Content-Type with boundary
@@ -120,8 +130,16 @@ class ApiClient {
         onRequest:
             (RequestOptions options, RequestInterceptorHandler handler) async {
               final token = await getIt<StorageService>().getAccessToken();
+              final sessionId = await getIt<StorageService>().getSessionId();
+              print("sessionId");
+              print(sessionId);
               if (token != null) {
                 options.headers['Authorization'] = 'Bearer $token';
+              }
+
+              if (sessionId != null &&
+                  options.path.contains('/auth/users/me')) {
+                options.headers['X-Session-Id'] = sessionId;
               }
               return handler.next(options);
             },
@@ -767,10 +785,16 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getCurrentUser() async {
     final response = await _protectedDio.get('/auth/users/me');
-    print('getCurrentUser response: ${response.data}');
-    print('getCurrentUser statusCode: ${response.statusCode}');
+
+    if (response.statusCode == 403) {
+      // Auto logout on 403
+      await getIt<StorageService>().clearAll();
+      getIt<AuthBloc>().add(LogoutRequested());
+    }
+
     return {'statusCode': response.statusCode, 'data': response.data};
   }
+
 
   Future<Map<String, dynamic>> updateNotificationPreferences({
     required bool emailNotifications,

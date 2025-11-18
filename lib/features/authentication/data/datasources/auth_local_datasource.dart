@@ -8,10 +8,12 @@ abstract class AuthLocalDataSource {
   Future<void> cacheTokens({
     required String accessToken,
     required String refreshToken,
+    required String sessionId,
   });
   Future<UserModel?> getCachedUser();
   Future<String?> getAccessToken();
   Future<String?> getRefreshToken();
+  Future<String?> getSessionId();
   Future<void> clearCache();
 }
 
@@ -36,12 +38,14 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   Future<void> cacheTokens({
     required String accessToken,
     required String refreshToken,
+    required String sessionId,
   }) async {
     try {
       print('💾 Local: Caching authentication tokens');
       await Future.wait([
         storageService.saveAccessToken(accessToken),
         storageService.saveRefreshToken(refreshToken),
+        storageService.saveSessionId(sessionId),
       ]);
       print('✅ Local: Tokens cached successfully');
     } catch (e) {
@@ -100,6 +104,24 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       print('❌ Local: Failed to get refresh token - ${e.toString()}');
       throw CacheException('Failed to get refresh token: ${e.toString()}');
     }
+  }
+
+
+   @override
+  Future<String?> getSessionId() async{
+ try {
+      final sessionId = await storageService.getSessionId();
+      if (sessionId != null && sessionId.isNotEmpty) {
+        print('✅ Local: session id found');
+        return sessionId;
+      } else {
+        print('ℹ️ Local: No session id found');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Local: Failed to get session id - ${e.toString()}');
+      throw CacheException('Failed to get session id: ${e.toString()}');
+    }    
   }
   
   @override

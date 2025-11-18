@@ -4,11 +4,13 @@ class LoginResponseModel {
   final UserModel user;
   final String accessToken;
   final String refreshToken;
+  final String sessionId;
   final int expiryDuration;
   const LoginResponseModel({
     required this.user,
     required this.accessToken,
     required this.refreshToken,
+    required this.sessionId,
     required this.expiryDuration,
   });
 
@@ -25,6 +27,7 @@ class LoginResponseModel {
       ),
       accessToken: json['access_token'] ?? '',
       refreshToken: json['refresh_token'] ?? '',
+      sessionId: json['session_id'] ?? '',
       expiryDuration: json['expiry_duration'] ?? 0,
     );
   }

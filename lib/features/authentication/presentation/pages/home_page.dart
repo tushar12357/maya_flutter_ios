@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:Maya/core/network/query_client.dart';
 import 'package:Maya/utils/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,8 +18,8 @@ import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 import 'package:Maya/core/services/notification_service.dart';
 import 'package:Maya/core/services/contact_service.dart';
-
-// ---------------------------------------------------------------------------
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_tanstack_query/flutter_tanstack_query.dart';// ---------------------------------------------------------------------------
 // TaskDetail model (unchanged)
 // ---------------------------------------------------------------------------
 class TaskDetail {
@@ -607,7 +608,6 @@ final userCountry = _getUserCountry();
   // UI
   // -----------------------------------------------------------------------
   @override
-@override
 Widget build(BuildContext context) {
   return BlocBuilder<AuthBloc, AuthState>(
     builder: (context, state) {
@@ -618,7 +618,7 @@ Widget build(BuildContext context) {
                 : 'User');
 
       return Scaffold(
-        body: Stack(
+        body: QueryClientProvider(client: queryClient, child: Stack(
           children: [
             // Background
             Container(color: const Color(0xFF111827)),
@@ -800,7 +800,6 @@ Widget build(BuildContext context) {
                             _buildEmptyState('No reminders')
                           else
                             ...reminders.map((r) => _buildReminderCard(r)),
-
                           const SizedBox(height: 24),
 
                           // === To‑Do ===
@@ -835,7 +834,7 @@ Widget build(BuildContext context) {
             ),
           ],
         ),
-      );
+      ));
     },
   );
 }

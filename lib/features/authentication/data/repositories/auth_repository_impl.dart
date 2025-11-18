@@ -37,6 +37,7 @@ class AuthRepositoryImpl implements AuthRepository {
         await localDataSource.cacheTokens(
           accessToken: loginResponse.accessToken,
           refreshToken: loginResponse.refreshToken,
+          sessionId: loginResponse.sessionId,
         );
         print('🔐 Repository: Login successful, user and tokens cached');
         return Right(loginResponse.user);
