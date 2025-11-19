@@ -18,7 +18,7 @@ class IntegrationsPage extends StatefulWidget {
 
 Future<void> _launchURL(String url) async {
   try {
-    final Uri uri = Uri.parse(Uri.encodeFull(url));
+    final Uri uri = Uri.parse(url);  // <-- Remove Uri.encodeFull(url)
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -26,6 +26,7 @@ Future<void> _launchURL(String url) async {
     }
   } catch (e) {
     print('Error launching URL: $e');
+    
   }
 }
 
@@ -76,6 +77,36 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
       category: 'productivity',
       scopes: [],
     ),
+    Integration(
+      id: 'asana',
+      name: 'Asana',
+      description: 'Manage your tasks and projects',
+      icon: Icons.task,
+      iconColor: Color(0xFF007AFF),
+      connected: false,
+      category: 'productivity',
+      scopes: [],
+    ),
+    Integration(
+      id: 'meta',
+      name: 'Meta',
+      description: 'Manage your meta account',
+      icon: Icons.facebook,
+      iconColor: Color(0xFF1877F2),
+      connected: false,
+      category: 'social',
+      scopes: [],
+    ),
+    Integration(
+      id: 'stripe',
+      name: 'Stripe',
+      description: 'Manage your stripe account',
+      icon: Icons.credit_card,
+      iconColor: Color(0xFF007AFF),
+      connected: false,
+      category: 'payment',
+      scopes: [],
+    ),
   ];
 
   @override
@@ -106,6 +137,15 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
                 break;
               case 'fireflies':
                 integration.connected = data['fireflies'] ?? false;
+                break;
+              case 'asana':
+                integration.connected = data['asana'] ?? false;
+                break;
+              case 'meta':
+                integration.connected = data['meta'] ?? false;
+                break;
+              case 'stripe':
+                integration.connected = data['stripe'] ?? false;
                 break;
             }
           }
@@ -581,6 +621,76 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
     }
   }
 
+
+  Future<void> _handleAsanaSignIn(Integration integration) async {
+    await _launchIntegrationUrl(
+      requester: () => getIt<ApiClient>().handleAsanaSignIn(),
+      integrationName: integration.name,
+    );
+  }
+
+  Future<void> _handleMetaSignIn(Integration integration) async {
+    await _launchIntegrationUrl(
+      requester: () => getIt<ApiClient>().handleMetaSignIn(),
+      integrationName: integration.name,
+    );
+  }
+
+  Future<void> _handleStripeSignIn(Integration integration) async {
+    await _launchIntegrationUrl(
+      requester: () => getIt<ApiClient>().handleStripeSignIn(),
+      integrationName: integration.name,
+    );
+  }
+
+  Future<void> _launchIntegrationUrl({
+    required Future<Map<String, dynamic>> Function() requester,
+    required String integrationName,
+  }) async {
+    try {
+      final result = await requester();
+      print("result: ${result['data']}");
+      if (result['statusCode'] == 200) {
+        final url = _extractIntegrationUrl(result['data']);
+        if (url != null) {
+          await _launchURL(url);
+          return;
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to open $integrationName connection.'),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error launching $integrationName: $e'),
+        ),
+      );
+    }
+  }
+
+  String? _extractIntegrationUrl(dynamic responseData) {
+    if (responseData is Map<String, dynamic>) {
+      final directUrl = responseData['url'];
+      if (directUrl is String && directUrl.isNotEmpty) {
+        return directUrl;
+      }
+      final nestedData = responseData['data'];
+      if (nestedData is Map<String, dynamic>) {
+        final nestedUrl = nestedData['url'];
+        if (nestedUrl is String && nestedUrl.isNotEmpty) {
+          return nestedUrl;
+        }
+      }
+    }
+    return null;
+  }
+
+
+  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -690,6 +800,12 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
                                         } else if (integration.id ==
                                             'fireflies') {
                                           _showFirefliesKeyPopup();
+                                        }else if(integration.id == 'asana') {
+                                          _handleAsanaSignIn(integration);
+                                        }else if(integration.id == 'meta') {
+                                          _handleMetaSignIn(integration);
+                                        }else if(integration.id == 'stripe') {
+                                          _handleStripeSignIn(integration);
                                         }
                                       
                                     },

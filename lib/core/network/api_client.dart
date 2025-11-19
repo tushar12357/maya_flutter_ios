@@ -145,7 +145,12 @@ class ApiClient {
             },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
           // ❌ Do NOT retry profile update endpoint
-         
+         if (error.response?.statusCode == 403) {
+    // Auto logout on 403
+    await getIt<StorageService>().clearAll();
+    getIt<AuthBloc>().add(LogoutRequested()); 
+    
+  }
 
           if (error.response?.statusCode == 401) {
             final encodedRefreshToken =
@@ -782,18 +787,11 @@ class ApiClient {
       false,
     );
   }
-
-  Future<Map<String, dynamic>> getCurrentUser() async {
-    final response = await _protectedDio.get('/auth/users/me');
-
-    if (response.statusCode == 403) {
-      // Auto logout on 403
-      await getIt<StorageService>().clearAll();
-      getIt<AuthBloc>().add(LogoutRequested());
-    }
-
-    return {'statusCode': response.statusCode, 'data': response.data};
-  }
+Future<Map<String, dynamic>> getCurrentUser() async {
+  final response = await _protectedDio.get('/auth/users/me');
+  
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
 
 
   Future<Map<String, dynamic>> updateNotificationPreferences({
@@ -983,5 +981,19 @@ Future<Map<String, dynamic>> updateUserProfile({
   }
 }
 
+Future<Map<String, dynamic>> handleAsanaSignIn() async {
+  final response = await _protectedDio.get('productivity/asana/oauth/login');
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
 
+
+Future<Map<String, dynamic>> handleMetaSignIn() async {
+  final response = await _protectedDio.get('productivity/meta/oauth/login');
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
+
+Future<Map<String, dynamic>> handleStripeSignIn() async {
+  final response = await _protectedDio.get('productivity/stripe/connect');
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
 }
