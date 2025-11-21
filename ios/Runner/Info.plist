@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>My Flutter App</string>
+	<string>Maya - AI Secretary</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -51,11 +51,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access for capturing photos or scanning.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>This app needs access to contacts to sync them.</string>
+<string>We access your contacts only to help you quickly find and invite friends who are already using [App Name]. For example, when you tap “Invite Friends”, we match your contacts to existing users so you can send them an invite link. Your contacts are never uploaded or stored on our servers.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app requires location access to function properly even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs location access for Bluetooth scanning.</string>
+<string>We use your location to show nearby users and events on the map and to recommend people or groups in your area. For example, when you open the “Nearby” tab, we display users within 10 km of your current position.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Maya needs microphone access to listen to your voice and have a conversation.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

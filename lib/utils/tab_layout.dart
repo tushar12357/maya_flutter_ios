@@ -176,18 +176,10 @@ class TabLayout extends StatelessWidget {
                   ],
                 ),
                 child: Center(
-                  child: Image.asset(
-                    'assets/maya_logo.png',
-                    width: 28,
-                    height: 28,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        FeatherIcons.star,
-                        color: Colors.white,
-                        size: 28,
-                      );
-                    },
+                  child: const Icon(
+                    FeatherIcons.star,
+                    color: Colors.white,
+                    size: 28,
                   ),
                 ),
               ),

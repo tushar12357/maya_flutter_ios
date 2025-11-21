@@ -30,7 +30,7 @@ Future<void> _launchURL(String url) async {
   }
 }
 
-class _IntegrationsPageState extends State<IntegrationsPage> {
+class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBindingObserver  {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   GoogleSignInAccount? _currentUser;
   bool _isInitializing = false;
@@ -113,10 +113,25 @@ class _IntegrationsPageState extends State<IntegrationsPage> {
   void initState() {
     super.initState();
     _initializeGoogleSignIn();
+  WidgetsBinding.instance.addObserver(this);   // <-- add this
 
     _loadCurrentUser();
     _loadIntegrationStatus();
   }
+
+ @override
+void didChangeAppLifecycleState(AppLifecycleState state) {
+  if (state == AppLifecycleState.resumed) {
+    _loadIntegrationStatus();  // <-- hits only when user RETURNS to app
+  }
+}
+
+@override
+void dispose() {
+  WidgetsBinding.instance.removeObserver(this);
+  super.dispose();
+}
+
 
   Future<void> _loadIntegrationStatus() async {
     try {

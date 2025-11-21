@@ -13,112 +13,110 @@ class SplashPage extends StatelessWidget {
         print('Splash: Auth state changed to ${state.runtimeType}');
       },
       child: Scaffold(
-        body: Stack(
-          children: [
-            // Background gradient
-            Container(color: const Color(0xFF111827)),
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x992A57E8), // #2A57E8 at 60%
-                    Colors.transparent,
-                    // Or: Color(0xFF111827).withOpacity(0.0)
-                  ],
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 60),
+
+                // Title
+                const Text(
+                  "Infinite Voice Lines",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-            ),
-            // Main content
-            SafeArea(
-              child: Column(
-                children: [
-                  const Spacer(), // Push content to center vertically
-                  // Centered Title + Subtitle + Logo
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Title
-                      const Text(
-                        'Maya AI Secretary',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Subtitle
-                      const Text(
-                        'Your intelligent AI assistant handles\nscheduling, emails, and conversations\neffortlessly. Work smarter, not harder.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      // Logo
-                      Image.asset(
-                        'assets/maya_logo.png',
-                        height: 300,
+                const SizedBox(height: 12),
+
+                // Subtitle
+                const Text(
+                  "Your AI Employee can handle 1,000+ voice conversations simultaneously.\nScale without limits.",
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    height: 1.6,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Avatar + Arrow Button (Fixed Overflow)
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Main Avatar Image
+                    Center(
+                      child: Image.asset(
+                        'assets/avatar.png', // Correct path as requested
+                        height: 360,
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            height: 300,
-                            color: Colors.grey.withOpacity(0.1),
+                            height: 360,
+                            alignment: Alignment.center,
                             child: const Icon(
-                              Icons.image_not_supported,
-                              size: 100,
+                              Icons.smart_toy,
+                              size: 120,
                               color: Colors.grey,
                             ),
                           );
                         },
                       ),
-                    ],
-                  ),
+                    ),
 
-                  const SizedBox(height: 40),
-
-                  // Loading Animation
-                  const _BouncingDots(),
-
-                  const SizedBox(height: 20),
-
-                  // Loading Text
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      String loadingText = 'Initializing...';
-                      if (state is AuthLoading) {
-                        loadingText = 'Checking authentication...';
-                      }
-                      return Text(
-                        loadingText,
-                        style: const TextStyle(
-                          color: Color.fromRGBO(189, 189, 189, 1),
-                          fontSize: 14,
+                    // Floating Arrow Button (Bottom-right of avatar)
+                    Positioned(
+                      right: 20,
+                      bottom: 30,
+                      child: InkWell(
+                        onTap: () {
+                          // Optional: manual navigation (Bloc usually handles this)
+                          // Navigator.pushNamed(context, '/login');
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          height: 50,
+                          width: 50,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.blue,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
+                ),
 
-                  const SizedBox(height: 40),
-                  const Spacer(), // Push loading to bottom
-                ],
-              ),
+                const SizedBox(height: 80), // Safe bottom padding
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Bouncing Dots Widget (kept for functionality)
+// Keep bouncing dots (unused in UI but preserved for future)
 class _BouncingDots extends StatefulWidget {
   const _BouncingDots();
 
@@ -138,26 +136,15 @@ class __BouncingDotsState extends State<_BouncingDots>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _animations = [
-      Tween<double>(begin: 0, end: -10).animate(
+
+    _animations = List.generate(3, (i) {
+      return Tween<double>(begin: 0, end: -12).animate(
         CurvedAnimation(
           parent: _controller,
-          curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+          curve: Interval(i * 0.15, 0.7 + i * 0.15, curve: Curves.easeOut),
         ),
-      ),
-      Tween<double>(begin: 0, end: -10).animate(
-        CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.15, 0.85, curve: Curves.easeOut),
-        ),
-      ),
-      Tween<double>(begin: 0, end: -10).animate(
-        CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-        ),
-      ),
-    ];
+      );
+    });
   }
 
   @override
@@ -170,23 +157,21 @@ class __BouncingDotsState extends State<_BouncingDots>
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
+      children: List.generate(3, (i) {
         return AnimatedBuilder(
           animation: _controller,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, _animations[index].value),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.6),
-                ),
+          builder: (_, __) => Transform.translate(
+            offset: Offset(0, _animations[i].value),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blue,
               ),
-            );
-          },
+            ),
+          ),
         );
       }),
     );
