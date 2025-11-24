@@ -451,21 +451,29 @@ final userCountry = _getUserCountry();
   // -----------------------------------------------------------------------
   // Data fetchers
   // -----------------------------------------------------------------------
-  Future<void> fetchReminders() async {
+   Future<void> fetchReminders() async {
     setState(() => isLoadingReminders = true);
     try {
-      final response = await _apiClient.getReminders();
-      if (response['statusCode'] == 200) {
+      final response = await _apiClient.getReminders(); // no params → latest
+      if (response['success'] == true) {
+        final List<dynamic> data = response['data']['data'] as List<dynamic>;
         setState(() {
-          reminders = List<Map<String, dynamic>>.from(response['data']['data']);
+          reminders = data
+              .cast<Map<String, dynamic>>()
+              .take(3) // only top 3
+              .toList();
         });
+      } else {
+        _showSnack('Failed to load reminders');
       }
     } catch (e) {
+      debugPrint('fetchReminders error: $e');
       _showSnack('Failed to load reminders');
     } finally {
       setState(() => isLoadingReminders = false);
     }
   }
+
 
   Future<void> fetchToDos() async {
     setState(() => isLoadingTodos = true);
