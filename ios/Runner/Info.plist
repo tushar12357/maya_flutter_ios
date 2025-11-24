@@ -51,7 +51,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access for capturing photos or scanning.</string>
 	<key>NSContactsUsageDescription</key>
-<string>We access your contacts only to help you quickly find and invite friends who are already using [App Name]. For example, when you tap “Invite Friends”, we match your contacts to existing users so you can send them an invite link. Your contacts are never uploaded or stored on our servers.</string>
+<string>We access your contacts only to help you quickly find and invite friends who are already using Maya. For example, when you tap “Invite Friends”, we match your contacts to existing users so you can send them an invite link. Your contacts are never uploaded or stored on our servers.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app requires location access to function properly even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

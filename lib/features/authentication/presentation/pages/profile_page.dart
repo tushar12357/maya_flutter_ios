@@ -1,7 +1,10 @@
 // profile_page.dart - EXACTLY LIKE YOUR ORIGINAL DESIGN + REAL API CALLS
 import 'dart:io';
 import 'package:Maya/core/constants/colors.dart';
+import 'package:Maya/features/authentication/presentation/bloc/auth_bloc.dart';
+import 'package:Maya/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:Maya/core/network/api_client.dart';
@@ -325,40 +328,82 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.blueGrey,
-                  child: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                      ? ClipOval(child: CachedNetworkImage(imageUrl: _avatarUrl!, fit: BoxFit.cover, width: 60, height: 60))
-                      : Image.asset("assets/images/person.png"),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(email, style: const TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _pickAndUploadAvatar,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
-                    child: _isUploadingAvatar
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text("Change Picture", style: TextStyle(fontSize: 12, color: Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
+Row(
+  children: [
+    CircleAvatar(
+      radius: 30,
+      backgroundColor: AppColors.greyColor,          // <- same background as OtherPage
+      backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+          ? CachedNetworkImageProvider(_avatarUrl!) as ImageProvider
+          : null,
+      child: (_avatarUrl == null || _avatarUrl!.isEmpty)
+          ? Text(
+              // ── Initials logic (same as in OtherPage) ──
+              fullName.isNotEmpty
+                  ? fullName.trim().split(' ').first[0].toUpperCase()
+                  : 'U',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: AppColors.balckClr,
+              ),
+            )
+          : null,
+    ),
+    const SizedBox(width: 15),
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(email, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
+    ),
+    // Change Picture Button
+    GestureDetector(
+      onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: _isUploadingAvatar
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+                        : const Text(
+                            "Change Picture",
+                            style: TextStyle(fontSize: 12, color: Colors.white),
+                          ),
+      ),
+    ),
+    // Remove Picture Button (only when a picture exists)
+    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) ...[
+      const SizedBox(width: 8),
+      GestureDetector(
+        onTap: _isUploadingAvatar ? null : _removeProfilePicture,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.red.shade600,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(Icons.delete, color: Colors.white),
+        ),
+      ),
+    ],
+  ],
+),  
+            const SizedBox(height: 10),
+
+       Container(
+  
+  
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -390,7 +435,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   onTap: _showChangePasswordDialog,
                   child: Text("Change Password", style: TextStyle(color: Color(0xffB2B2B2), fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
                 ),
-                Text("Delete Account", style: TextStyle(color: AppColors.redColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                InkWell(
+                  onTap: () => _deleteAccount(),
+                  child: Text("Delete Account", style: TextStyle(color: AppColors.redColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                ),
               ],
             ),
             const SizedBox(height: 50),
@@ -399,6 +447,130 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+
+  Future<void> _removeProfilePicture() async {
+  // Show confirmation dialog
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text("Remove Profile Picture"),
+      content: const Text("Are you sure you want to remove your profile picture?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Remove"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  setState(() => _isUploadingAvatar = true);
+
+  try {
+    final res = await getIt<ApiClient>().deleteProfileImage();
+
+    if (res['statusCode'] == 200 || res['statusCode'] == 204) {
+      setState(() {
+        _avatarUrl = null; // This will show the default placeholder
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Profile picture removed successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Refresh user data (optional – in case backend returns updated URLs)
+      _loadUser();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['data']['message'] ?? "Failed to remove picture"),
+          backgroundColor: AppColors.redColor,
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Something went wrong"), backgroundColor: Colors.red),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isUploadingAvatar = false);
+    }
+  }
+}
+
+  void _deleteAccount() async {
+  // Show confirmation first (recommended)
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Delete Account"),
+      content: const Text("This action cannot be undone. Are you sure?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Delete"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  // Optional: Show loading
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("Deleting account...")),
+  );
+
+  final res = await getIt<ApiClient>().deleteUser();
+
+  if (res['statusCode'] == 200 || res['statusCode'] == 204) {
+    // Critical: Trigger the same auth cleanup as logout
+    BlocProvider.of<AuthBloc>(context).add(LogoutRequested());
+
+    // Small delay to let BLoC process the event
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    // Now safely navigate
+    if (mounted) {
+      context.go('/login');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Account deleted successfully"),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(res['data']['message'] ?? "Failed to delete account"),
+        backgroundColor: AppColors.redColor,
+      ),
+    );
+  }
+}
+
+
+
 
   void _showChangePasswordDialog() {
     final oldCtrl = TextEditingController();

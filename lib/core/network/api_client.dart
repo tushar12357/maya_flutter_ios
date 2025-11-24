@@ -996,4 +996,14 @@ Future<Map<String, dynamic>> handleStripeSignIn() async {
   final response = await _protectedDio.get('productivity/stripe/connect');
   return {'statusCode': response.statusCode, 'data': response.data};
 }
+
+Future<Map<String, dynamic>> deleteUser() async {
+  final response = await _protectedDio.delete('/auth/users/delete');
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
+
+Future<Map<String, dynamic>> deleteProfileImage() async {
+  final response = await _protectedDio.delete('/auth/users/profile-picture');
+  return {'statusCode': response.statusCode, 'data': response.data};
+}
 }

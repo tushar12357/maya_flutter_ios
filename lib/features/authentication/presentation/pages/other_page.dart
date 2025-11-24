@@ -237,7 +237,7 @@ color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
   // ==================== HEADER WITH AVATAR & EDIT ====================
   Widget _buildHeader() {
     final avatarUrl = _user?.profile_image_url;
-    final initials = _user?.initials ?? 'U';
+    final initials = _user?.initials ?? '';
 
     return Row(
       children: [
