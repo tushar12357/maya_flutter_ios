@@ -7,6 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GenerationsPage extends StatefulWidget {
   const GenerationsPage({super.key});
@@ -254,6 +258,36 @@ final Duration _seekTimeout = const Duration(seconds: 5);
     super.dispose();
   }
 
+
+  Future<void> _shareAudioFile() async {
+  try {
+    final uri = Uri.parse(widget.url);
+
+    // Download audio bytes
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception("Failed to download audio");
+    }
+
+    // Save to temp storage
+    final tempDir = await getTemporaryDirectory();
+    final filePath = '${tempDir.path}/shared_audio_${DateTime.now().millisecondsSinceEpoch}.mp3';
+    final file = File(filePath);
+    await file.writeAsBytes(response.bodyBytes);
+
+    // Share actual file
+    await Share.shareXFiles([XFile(filePath)], text: "Here's the voice note");
+
+  } catch (e) {
+    debugPrint("Share failed: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to share audio")),
+      );
+    }
+  }
+}
+
   String _formatDuration(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -344,7 +378,15 @@ await _safeSeek(target);
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-                child: const Icon(Icons.share_outlined, size: 20, color: Colors.black54),
+                child:  GestureDetector(
+  onTap: _shareAudioFile,
+  child: Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+    child: const Icon(Icons.share_outlined, size: 20, color: Colors.black54),
+  ),
+),
+
               ),
             ],
           ),

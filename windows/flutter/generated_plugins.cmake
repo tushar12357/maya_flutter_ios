@@ -13,6 +13,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   geolocator_windows
   livekit_client
   permission_handler_windows
+  share_plus
   url_launcher_windows
 )
 
