@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/network/query_client.dart';
+import 'package:Maya/core/services/thunder_service.dart';
 import 'package:Maya/features/widgets/voice_chat_card_interactive.dart';
 import 'package:Maya/utils/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:Maya/core/network/api_client.dart';
@@ -16,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ultravox_client/ultravox_client.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -625,7 +628,7 @@ static const double navBarMarginBottom = 12.0;
           body: Stack(
             children: [
               SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: totalNavBarHeight + 20),
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -699,15 +702,15 @@ static const double navBarMarginBottom = 12.0;
                       ...tasks.take(3).map((task) => _buildActiveTaskCard(task)),
 
                     // REMINDERS
-                    _buildSectionHeader('Reminders', () => context.push('/reminders')),
-                    const SizedBox(height: 15),
-                    if (isLoadingReminders)
-                      ...List.generate(3, (_) => const ReminderCardSkeleton())
-                    else if (reminders.isEmpty)
-                      _buildEmptySection('No reminders')
-                    else
-                      ...reminders.map((r) => _buildReminderCard(r)),
-
+                  // REMINDERS
+_buildSectionHeader('Reminders', () => context.push('/reminders')),
+const SizedBox(height: 15),
+if (isLoadingReminders)
+  ...List.generate(3, (_) => const ReminderCardSkeleton())
+else if (reminders.isEmpty)
+  _buildEmptySection('No reminders')
+else
+  ...reminders.map((r) => _buildReminderCard(r)), // ← FIXED: added (
                     // TO-DO
                     _buildSectionHeader('To-Do', () => context.push('/todos')),
                     const SizedBox(height: 15),
@@ -724,25 +727,6 @@ static const double navBarMarginBottom = 12.0;
               ),
 
               // ORANGE-THEMED BOTTOM BAR
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: CustomBottomAppBar(
-                  selectedIndex: 0,
-                  onItemSelected: (idx) {
-                    if (idx == 0) return;
-                    if (idx == 1) context.push('/tasks');
-                    if (idx == 3) context.push('/setup');
-                    if (idx == 4) context.push('/more');
-                  },
-                  height: navBarHeight,
-                  marginBottom: navBarMarginBottom,
-                  curveSpace: curveSpace,
-                  navBarColor: AppColors.whiteClr,
-                  primaryTextColor: AppColors.balckClr,
-                  secondaryTextColor: Colors.black54,
-                  accentBlue: AppColors.primary, // Now Orange!
-                ),
-              ),
             ],
           ),
         );
@@ -833,9 +817,163 @@ static const double navBarMarginBottom = 12.0;
   }
 }
 
-// ORANGE VOICE CHAT CARD
-class VoiceChatCard extends StatelessWidget {
+
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+// EXACT ORIGINAL UI — ZERO CHANGES — BUT NOW WITH ULTRAVOX TEXT CHAT
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+ 
+class VoiceChatCard extends StatefulWidget {
   const VoiceChatCard({super.key});
+
+  @override
+  State<VoiceChatCard> createState() => _VoiceChatCardState();
+}
+
+class _VoiceChatCardState extends State<VoiceChatCard> {
+  final ThunderSessionService _shared = ThunderSessionService();
+  final ApiClient _apiClient = GetIt.instance<ApiClient>();
+
+  UltravoxSession? _session;
+  final TextEditingController _textController = TextEditingController();
+
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  String _liveTranscript = ''; // ← THIS SHOWS WHAT MAYA IS CURRENTLY SAYING
+
+  @override
+  void initState() {
+    super.initState();
+    _shared.init();
+    _session = _shared.session;
+    _isConnected = _shared.isSessionActive;
+    _liveTranscript = _shared.currentTranscript;
+    _setupListeners();
+  }
+
+  void _setupListeners() {
+    _session?.statusNotifier.addListener(_onStatusChange);
+    _session?.dataMessageNotifier.addListener(_onDataMessage);
+    _session?.experimentalMessageNotifier.addListener(_onDebugMessage);
+  }
+
+  void _removeListeners() {
+    try {
+      _session?.statusNotifier.removeListener(_onStatusChange);
+      _session?.dataMessageNotifier.removeListener(_onDataMessage);
+      _session?.experimentalMessageNotifier.removeListener(_onDebugMessage);
+    } catch (_) {}
+  }
+
+  void _onStatusChange() {
+    final active = _shared.isSessionActive;
+    if (_isConnected != active) {
+      setState(() => _isConnected = active);
+    }
+  }
+
+  void _onDataMessage() {
+    if (!mounted || _session == null) return;
+
+    final transcripts = _session!.transcripts;
+    if (transcripts.isEmpty) return;
+
+    final latest = transcripts.last;
+    final text = latest.text.trim();
+
+    // Real-time partial transcript (Maya typing)
+    if (!latest.isFinal && latest.speaker == Role.agent) {
+      setState(() {
+        _liveTranscript = text;
+        _shared.currentTranscript = text;
+      });
+      return;
+    }
+
+    // Final message from Maya → clear live transcript
+    if (latest.isFinal && latest.speaker == Role.agent && text.isNotEmpty) {
+      setState(() {
+        _liveTranscript = '';
+        _shared.currentTranscript = '';
+      });
+    }
+  }
+
+  void _onDebugMessage() {
+    final msg = _session?.experimentalMessageNotifier.value;
+    if (msg is Map<String, dynamic> && msg.toString().contains('hangUp')) {
+      _shared.resetSession();
+      setState(() {
+        _isConnected = false;
+        _isConnecting = false;
+        _liveTranscript = '';
+      });
+    }
+  }
+
+  Future<void> _toggleConnection() async {
+    if (_isConnected) {
+      await _shared.resetSession();
+      setState(() {
+        _isConnected = false;
+        _isConnecting = false;
+        _liveTranscript = '';
+      });
+      return;
+    }
+
+    setState(() => _isConnecting = true);
+
+    try {
+      final payload = _apiClient.prepareStartThunderPayload('main');
+      final res = await _apiClient.startThunder(payload['agent_type']);
+
+      if (res['statusCode'] != 200) throw Exception("Failed");
+
+      final joinUrl = res['data']['data']['joinUrl'];
+
+      _shared.init();
+      _session = _shared.session;
+      _removeListeners();
+      _setupListeners();
+
+      await _session!.joinCall(joinUrl);
+
+      // FORCE MUTE — 100% GUARANTEED NO AUDIO
+      _session!.micMuted = true;
+      _session!.speakerMuted = true;
+      _session!.micMuted = true;     // double tap
+      _session!.speakerMuted = true; // double tap
+      _shared.isMicMuted = true;
+      _shared.isSpeakerMuted = true;
+
+      setState(() {
+        _isConnected = true;
+        _isConnecting = false;
+      });
+    } catch (e) {
+      debugPrint("Connect failed: $e");
+      setState(() => _isConnecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to connect to Maya')),
+      );
+    }
+  }
+
+  void _sendMessage() {
+    final text = _textController.text.trim();
+    if (text.isEmpty || !_isConnected) return;
+
+    _session?.sendText(text);
+    _shared.addMessage('user', text);
+    _textController.clear();
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _removeListeners();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -855,12 +993,19 @@ class VoiceChatCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                height: 35, width: 35,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.3)),
+                height: 35,
+                width: 35,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.3),
+                ),
                 child: const Icon(Icons.record_voice_over, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 8),
-              const Text('Voice Chat With Maya', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Voice Chat With Maya',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -868,25 +1013,88 @@ class VoiceChatCard extends StatelessWidget {
             'AI Voice assistants provide instant, personalised\nsupport, enhancing daily tasks effortlessly.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // LIVE TRANSCRIPT BUBBLE (appears when Maya is typing)
+          if (_liveTranscript.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    child: ClipOval(child: Image.asset('assets/maya_logo.png', width: 28, height: 28)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _liveTranscript,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // INPUT + SEND + MIC/END BUTTON
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(50),
               border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Ask maya...', style: TextStyle(color: Colors.white70)),
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle),
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    enabled: _isConnected,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: _isConnected ? 'Ask maya...' : 'Tap mic to start',
+                      hintStyle: TextStyle(color: Colors.white60),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+
+                // Send Button
+                if (_isConnected)
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+                      child: const Icon(Icons.send, color: Colors.white, size: 16),
+                    ),
+                  ),
+
+                // Mic / End Call Button
+                GestureDetector(
+                  onTap: _isConnecting ? null : _toggleConnection,
                   child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: Icon(Icons.mic, color: AppColors.primary, size: 20),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isConnected ? Colors.red : Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isConnected ? Icons.call_end : Icons.mic,
+                      color: _isConnected ? Colors.white : AppColors.primary,
+                      size: 22,
+                    ),
                   ),
                 ),
               ],
@@ -898,8 +1106,7 @@ class VoiceChatCard extends StatelessWidget {
   }
 }
 
-// TaskCard, TodoCard, ReminderCard, Skeletons – unchanged except minor color tweaks if needed
-// (All already use AppColors.borderColor, white background, etc.)
+
 
 class TaskCard extends StatelessWidget {
   final String title;

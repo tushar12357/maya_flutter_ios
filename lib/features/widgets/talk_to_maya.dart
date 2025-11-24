@@ -366,6 +366,7 @@ void _onDataMessage() {
   // Actions
   // ===================================================================
   Future<void> _onStart() async {
+    
     if (_shared.isSessionActive && _session?.status != UltravoxSessionStatus.disconnected) {
       await _onStop();
       return;
@@ -436,24 +437,22 @@ void _onDataMessage() {
     });
   }
 
-  void _handleSendMessage() {
-    if (_controlsDisabled) return;
-    final msg = _textController.text.trim();
-    if (msg.isEmpty) return;
+void _handleSendMessage() {
+  if (_controlsDisabled) return;
 
-    _lastSentText = msg;
+  final msg = _textController.text.trim();
+  if (msg.isEmpty) return;
 
-    try {
-      _session?.sendText(msg);
-    } catch (_) {}
+  _lastSentText = msg;
 
-    setState(() {
-      _conversation.add({'type': 'user', 'text': msg});
-      _shared.addMessage('user', msg);
-      _textController.clear();
-    });
-    _scrollToBottom();
-  }
+  try {
+    _session?.sendText(msg);
+  } catch (_) {}
+
+  // DO NOT add conversation message here (avoids double messages)
+  _textController.clear();
+  _scrollToBottom();
+}
 
   bool get _controlsDisabled {
     final s = _session?.status;
@@ -577,7 +576,7 @@ Widget build(BuildContext context) {
                   child: ClipOval(
                     child: 
                          Image.asset(
-                            'assets/animation.png', // Replace with your actual image
+                            'assets/maya_logo.png', // Replace with your actual image
                             fit: BoxFit.cover,
                           ),
                   ),
@@ -605,7 +604,7 @@ Widget build(BuildContext context) {
   backgroundColor: Colors.transparent,
   child: ClipOval(
     child: Image.asset(
-      "assets/animation.png",
+      "assets/maya_logo.png",
       fit: BoxFit.cover,
       width: 36,
       height: 36,
@@ -708,7 +707,7 @@ Widget build(BuildContext context) {
   backgroundColor: Colors.transparent,
   child: ClipOval(
     child: Image.asset(
-      "assets/animation.png",
+      "assets/maya_logo.png",
       fit: BoxFit.cover,
       width: 36,
       height: 36,

@@ -55,6 +55,8 @@ class User {
 // ================================================================
 // OTHER PAGE - Full Profile Screen with Your Design & Colors
 // ================================================================
+// OTHER PAGE - Full Profile Screen (clean unified cards)
+// ================================================================
 class OtherPage extends StatefulWidget {
   const OtherPage({super.key});
 
@@ -64,7 +66,6 @@ class OtherPage extends StatefulWidget {
 
 class _OtherPageState extends State<OtherPage> {
   User? _user;
-  bool _isLoading = true;
   String? _error;
 
   @override
@@ -79,7 +80,6 @@ class _OtherPageState extends State<OtherPage> {
       if (result['statusCode'] == 200 && result['data']['success'] == true) {
         setState(() {
           _user = User.fromJson(result);
-          _isLoading = false;
         });
       } else {
         throw Exception(result['data']['message'] ?? 'Failed to load user');
@@ -87,7 +87,6 @@ class _OtherPageState extends State<OtherPage> {
     } catch (e) {
       setState(() {
         _error = e.toString();
-        _isLoading = false;
       });
     }
   }
@@ -97,157 +96,169 @@ class _OtherPageState extends State<OtherPage> {
     return Scaffold(
       backgroundColor: AppColors.bgColor,
       body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ==================== HEADER ====================
-                  _buildHeader(),
-                  const SizedBox(height: 25),
+        child: _error != null
+            ? _buildErrorState()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ==================== HEADER ====================
+                    _buildHeader(),
+                    const SizedBox(height: 25),
 
-                  // ==================== FEATURE TILES ====================
-                  _buildTile(
-                    title: "Generations",
-                    icon: Icons.auto_awesome,
-                    color: const Color(0xFFE3CCF8), // Pastel purple (as in original design)
-                    onTap: () => context.go('/generations'),
-                  ),
-                  _buildTile(
-                    title: "Reminders",
-                    icon: Icons.lock_clock,
-                    color: const Color(0xFFCFE9FF), // Pastel blue
-                    onTap: () => context.go('/reminders'),
-                  ),
-                  _buildTile(
-                    title: "To-Do",
-                    icon: Icons.check_circle_outline,
-                    color: const Color(0xFFCFF5E1), // Pastel green
-                    onTap: () => context.go('/todos'),
-                  ),
-                  _buildTile(
-                    title: "Integrations",
-                    icon: Icons.link,
-                    color: const Color(0xFFFFE6C9), // Pastel orange
-                    onTap: () => context.go('/integrations'),
-                  ),
-                  _buildTile(
-                    title: "Energy",
-                    icon: Icons.energy_savings_leaf_outlined,
-color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
-                      // Replace with your actual Energy screen route
-                      context.go('/energy');
-                    },
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // ==================== LOGOUT BUTTON ====================
-                  InkWell(
-                    onTap: () async {
-                      BlocProvider.of<AuthBloc>(context).add(LogoutRequested());
-                      await Future.delayed(const Duration(milliseconds: 100));
-                      context.go('/login');
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        gradient: const LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            AppColors.primary,   // #F97418
-                            AppColors.secondary, // #ECB48D
-                          ],
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.logout, color: Colors.white),
-                          SizedBox(width: 12),
-                          Text(
-                            "Logout",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                    // ==================== UNIFIED FEATURE CARDS ====================
+                    _buildFeatureCard(
+                      title: "Generations",
+                      icon: Icons.auto_awesome,
+                      onTap: () => context.go('/generations'),
                     ),
-                  ),
+                    _buildFeatureCard(
+                      title: "Reminders",
+                      icon: Icons.lock_clock,
+                      onTap: () => context.go('/reminders'),
+                    ),
+                    _buildFeatureCard(
+                      title: "To-Do",
+                      icon: Icons.check_circle_outline,
+                      onTap: () => context.go('/todos'),
+                    ),
+                    _buildFeatureCard(
+                      title: "Integrations",
+                      icon: Icons.link,
+                      onTap: () => context.go('/integrations'),
+                    ),
+                    _buildFeatureCard(
+                      title: "Energy",
+                      icon: Icons.energy_savings_leaf_outlined,
+                      onTap: () => context.go('/energy'),
+                    ),
 
-                  const SizedBox(height: 40),
-                ],
+                    const SizedBox(height: 20),
+
+                    // ==================== LOGOUT BUTTON ====================
+                    _buildLogoutButton(),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // ERROR STATE
+  // -----------------------------------------------------------------
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.redColor, size: 64),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load profile',
+              style: TextStyle(
+                color: AppColors.balckClr,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-
-            // ==================== LOADING OVERLAY ====================
-            if (_isLoading)
-              Container(
-                color: Colors.black54,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 3,
-                  ),
-                ),
-              ),
-
-            // ==================== ERROR OVERLAY ====================
-            if (_error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline, color: AppColors.redColor, size: 64),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Failed to load profile',
-                        style: TextStyle(
-                          color: AppColors.balckClr,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: AppColors.redColor),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: const TextStyle(color: AppColors.redColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() => _error = null);
+                _fetchUser();
+              },
+              child: const Text("Retry"),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ==================== HEADER WITH AVATAR & EDIT ====================
+  // -----------------------------------------------------------------
+  // HEADER (with skeleton)
+  // -----------------------------------------------------------------
   Widget _buildHeader() {
-    final avatarUrl = _user?.profile_image_url;
-    final initials = _user?.initials ?? '';
+    if (_user == null) {
+      return Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.borderColor.withOpacity(0.3),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 20,
+                  width: 180,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 14,
+                  width: 220,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 12,
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.borderColor.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final avatarUrl = _user!.profile_image_url;
+    final initials = _user!.initials;
 
     return Row(
       children: [
         CircleAvatar(
           radius: 32,
           backgroundColor: AppColors.greyColor,
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          backgroundImage: avatarUrl.isNotEmpty
               ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
               : null,
-          child: (avatarUrl == null || avatarUrl.isEmpty)
+          child: avatarUrl.isEmpty
               ? Text(
                   initials,
                   style: TextStyle(
@@ -264,7 +275,7 @@ color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _user?.fullName ?? 'Loading...',
+                _user!.fullName,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -273,7 +284,7 @@ color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
               ),
               const SizedBox(height: 4),
               Text(
-                _user?.email ?? '',
+                _user!.email,
                 style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 2),
@@ -286,7 +297,7 @@ color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
         ),
         const SizedBox(width: 8),
         InkWell(
-          onTap: () => context.go('/profile'), // or your edit profile route
+          onTap: () => context.go('/profile'),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -307,37 +318,133 @@ color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
     );
   }
 
-  // ==================== REUSABLE TILE ====================
-  Widget _buildTile({
+  // -----------------------------------------------------------------
+  // REUSABLE UNIFIED FEATURE CARD (same style as TasksPage cards)
+  // -----------------------------------------------------------------
+  Widget _buildFeatureCard({
     required String title,
     required IconData icon,
-    required Color color,
     required VoidCallback onTap,
   }) {
+    final bool isLoading = _user == null && _error == null;
+
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      onTap: isLoading ? null : onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        height: 56,
         margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black12),
+          color: AppColors.whiteClr,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: AppColors.balckClr.withOpacity(0.85)),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.balckClr,
+            // Icon container (same subtle background as task cards)
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.primary,
+                size: 24,
               ),
             ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.balckClr,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+              color: Colors.grey.withOpacity(0.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // -----------------------------------------------------------------
+  // LOGOUT BUTTON (unchanged, still gradient – looks great)
+  // -----------------------------------------------------------------
+  Widget _buildLogoutButton() {
+    final bool isLoading = _user == null && _error == null;
+
+    return InkWell(
+      onTap: isLoading
+          ? null
+          : () async {
+              BlocProvider.of<AuthBloc>(context).add(LogoutRequested());
+              await Future.delayed(const Duration(milliseconds: 100));
+              context.go('/login');
+            },
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: isLoading
+              ? null
+              : const LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [AppColors.primary, AppColors.secondary],
+                ),
+          color: isLoading ? AppColors.borderColor.withOpacity(0.3) : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading)
+              Container(
+                width: 20,
+                height: 20,
+                decoration: const BoxDecoration(
+                  color: Colors.white30,
+                  shape: BoxShape.circle,
+                ),
+              )
+            else
+              const Icon(Icons.logout, color: Colors.white),
+            const SizedBox(width: 12),
+            isLoading
+                ? Container(
+                    width: 80,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white30,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  )
+                : const Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ],
         ),
       ),

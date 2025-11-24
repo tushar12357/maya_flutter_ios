@@ -111,189 +111,145 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildInfoRow(String title, String value, String fieldKey, VoidCallback onEdit) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 15)),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Flexible(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+Widget _buildInfoRow({
+  required String title,
+  required String value,
+  bool editable = false,
+  VoidCallback? onEdit,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              if (editable) ...[
                 const SizedBox(width: 8),
                 InkWell(onTap: onEdit, child: const Icon(Icons.edit, size: 18)),
               ],
-            ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
-  Future<void> _showOtpDialog() async {
-    String digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length > 10) digits = digits.substring(digits.length - 10);
-    _phoneController.text = digits;
+Future<void> _showOtpDialog() async {
+    String initialPhoneDigits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (initialPhoneDigits.length > 2) {
+      initialPhoneDigits = initialPhoneDigits.substring(2);
+    }
+    _phoneController.text = initialPhoneDigits;
 
     return showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          contentPadding: const EdgeInsets.all(24),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Tell Us your Phone Number", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text("We'll text you a code so we can confirm that it's you.", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
-                    child: const Text('+91', style: TextStyle(fontSize: 16)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: "78967157628",
-                        fillColor: Colors.grey[200],
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          backgroundColor: Colors.white70,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black26, width: 1.4),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text("Tell Us your Phone Number",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text("We'll text you a code so we can confirm that it's you.",
+                    style: TextStyle(color: Colors.black, fontSize: 14)),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.borderColor),
+                      ),
+                      child: Row(
+                        children: const [
+                          Text("+91", style: TextStyle(fontSize: 16)),
+                          Icon(Icons.arrow_drop_down, size: 22),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "78967157628",
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+                GestureDetector(
+                  onTap: () async {
                     Navigator.of(context).pop();
                     final newPhone = '+91-${_phoneController.text}';
-                    final res = await getIt<ApiClient>().updateUserProfile(phoneNumber: _phoneController.text.trim());
+                    final res = await getIt<ApiClient>().updateUserProfile(
+                        phoneNumber: _phoneController.text.trim());
                     if (res['statusCode'] == 200) {
                       setState(() => phone = newPhone);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Phone updated successfully!"), backgroundColor: AppColors.primary),
+                        const SnackBar(content: Text("Phone updated successfully!")),
                       );
                       _loadUser();
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Update failed"), backgroundColor: AppColors.redColor),
+                        const SnackBar(content: Text("Update failed")),
                       );
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 5,
-                  ),
-                  child: const Text('Send OTP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showEditDialog(String title, String currentValue, String fieldKey) async {
-    _dialogController.text = currentValue;
-
-    return showDialog<void>(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          contentPadding: EdgeInsets.zero,
-          content: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Edit $title', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _dialogController,
-                  decoration: InputDecoration(
-                    labelText: title,
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
-                  ),
-                  maxLines: fieldKey == 'bio' ? 3 : 1,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel', style: TextStyle(fontSize: 16))),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Container(
+                    width: double.infinity,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      gradient: LinearGradient(
+                        colors: [AppColors.secondary, AppColors.primary],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-                      onPressed: () async {
-                        final newValue = _dialogController.text.trim();
-                        Navigator.pop(context);
-
-                        Map<String, dynamic> updateData = {};
-                        if (fieldKey == 'fullName') {
-                          final names = newValue.split(' ');
-                          updateData['first_name'] = names.first;
-                          updateData['last_name'] = names.length > 1 ? names.sublist(1).join(' ') : '';
-                        } else if (fieldKey == 'email') {
-                          updateData['email'] = newValue;
-                        } else if (fieldKey == 'location') {
-                          updateData['location'] = newValue;
-                        }
-
-                        final res = await getIt<ApiClient>().updateUserProfile(
-                          firstName: updateData['first_name'] ?? '',
-                          lastName: updateData['last_name'] ?? '',
-                        );
-
-                        if (res['statusCode'] == 200) {
-                          setState(() {
-                            if (fieldKey == 'fullName') fullName = newValue;
-                            if (fieldKey == 'email') email = newValue;
-                            if (fieldKey == 'location') location = newValue;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("$title updated!"), backgroundColor: AppColors.primary),
-                          );
-                          _loadUser();
-                        }
-                      },
-                      child: const Text('Save', style: TextStyle(fontSize: 16, color: Colors.white)),
                     ),
-                  ],
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "Send OTP",
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -303,6 +259,293 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+Future<void> _showEditDialog(String title, String currentValue) async {
+    _dialogController.text = currentValue;
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          backgroundColor: Colors.white70,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black26, width: 1.4),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Edit $title",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black26),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: TextField(
+                    controller: _dialogController,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: "Enter value...",
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: () async {
+                    final newValue = _dialogController.text.trim();
+                    if (newValue.isEmpty) return;
+
+                    Navigator.of(context).pop();
+
+                    final names = newValue.split(' ');
+                    final res = await getIt<ApiClient>().updateUserProfile(
+                      firstName: names.first,
+                      lastName: names.length > 1 ? names.sublist(1).join(' ') : '',
+                    );
+
+                    if (res['statusCode'] == 200) {
+                      setState(() => fullName = newValue);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$title updated to $newValue')),
+                      );
+                      _loadUser();
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      gradient: const LinearGradient(
+                        colors: [AppColors.secondary, AppColors.primary],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "Save",
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+Future<void> _showChangePasswordDialog() async {
+  bool oldPassVisible = false;
+  bool newPassVisible = false;
+  bool confirmVisible = false;
+
+  final oldPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  return showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.black26, width: 1.4),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: Text(
+                        "Change Password",
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.black87),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Old Password
+                    const Text("Current Password", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: AppColors.borderColor),
+                      ),
+                      child: TextField(
+                        controller: oldPasswordController,
+                        obscureText: !oldPassVisible,
+                        decoration: InputDecoration(
+                          hintText: "Enter current password",
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                          prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+                          suffixIcon: IconButton(
+                            icon: Icon(oldPassVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
+                            onPressed: () => setStateDialog(() => oldPassVisible = !oldPassVisible),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // New Password
+                    const Text("New Password", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: AppColors.borderColor),
+                      ),
+                      child: TextField(
+                        controller: newPasswordController,
+                        obscureText: !newPassVisible,
+                        decoration: InputDecoration(
+                          hintText: "Enter new password",
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                          prefixIcon: const Icon(Icons.lock, color: Colors.grey),
+                          suffixIcon: IconButton(
+                            icon: Icon(newPassVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
+                            onPressed: () => setStateDialog(() => newPassVisible = !newPassVisible),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text("Must be at least 8 characters.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 12),
+
+                    // Confirm New Password
+                    const Text("Confirm New Password", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: AppColors.borderColor),
+                      ),
+                      child: TextField(
+                        controller: confirmPasswordController,
+                        obscureText: !confirmVisible,
+                        decoration: InputDecoration(
+                          hintText: "Re-enter new password",
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                          prefixIcon: const Icon(Icons.lock, color: Colors.grey),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              confirmVisible ? Icons.visibility : Icons.visibility_off,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => setStateDialog(() => confirmVisible = !confirmVisible),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text("Both passwords must match", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 24),
+
+                    // Submit Button
+                    GestureDetector(
+                      onTap: () async {
+                        final oldPass = oldPasswordController.text.trim();
+                        final newPass = newPasswordController.text;
+                        final confirmPass = confirmPasswordController.text;
+
+                        if (oldPass.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Please enter your current password")),
+                          );
+                          return;
+                        }
+                        if (newPass.length < 8) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("New password must be at least 8 characters")),
+                          );
+                          return;
+                        }
+                        if (newPass != confirmPass) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("New passwords do not match")),
+                          );
+                          return;
+                        }
+
+                        Navigator.pop(context); // Close dialog
+
+                        // Optional: Show loading
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Row(children: [CircularProgressIndicator(), SizedBox(width: 16), Text("Updating password...")])),
+                        );
+
+                        final res = await getIt<ApiClient>().changePassword(
+                          oldPassword: oldPass,
+                          newPassword: newPass,
+                          confirmPassword: confirmPass,
+                        );
+
+                        ScaffoldMessenger.of(context).clearSnackBars();
+
+                        if (res['statusCode'] == 200) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Password changed successfully!"), backgroundColor: Colors.green),
+                          );
+                        } else {
+                          final msg = res['data']?['message'] ?? res['message'] ?? "Failed to change password";
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(msg), backgroundColor: AppColors.redColor),
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          gradient: const LinearGradient(
+                            colors: [AppColors.secondary, AppColors.primary],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          "Update Password",
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -416,15 +659,22 @@ Row(
                   const Text("Personal Information", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   const Divider(color: Color(0xffC1BEC9)),
-                  _buildInfoRow("Full Name", fullName, 'fullName', () => _showEditDialog("Full Name", fullName, 'fullName')),
-                  const Divider(color: Color(0xffC1BEC9)),
-                  _buildInfoRow("Email", email, 'email', () => _showEditDialog("Email", email, 'email')),
-                  const Divider(color: Color(0xffC1BEC9)),
-                  _buildInfoRow("Phone", phone, 'phone', _showOtpDialog),
-                  const Divider(color: Color(0xffC1BEC9)),
-                  _buildInfoRow("Location", location, 'location', () => _showEditDialog("Location", location, 'location')),
-                  const Divider(color: Color(0xffC1BEC9)),
-                ],
+                 _buildInfoRow(
+  title: "Full Name",
+  value: fullName,
+  editable: true,
+  onEdit: () => _showEditDialog("Full Name", fullName),
+),
+const Divider(color: Color(0xffC1BEC9)),
+
+_buildInfoRow(title: "Email", value: email),
+const Divider(color: Color(0xffC1BEC9)),
+
+_buildInfoRow(title: "Phone", value: phone.isEmpty ? "Not set" : phone),
+const Divider(color: Color(0xffC1BEC9)),
+
+_buildInfoRow(title: "Location", value: location),
+const Divider(color: Color(0xffC1BEC9)), ],
               ),
             ),
             const SizedBox(height: 20),
@@ -572,62 +822,4 @@ Row(
 
 
 
-  void _showChangePasswordDialog() {
-    final oldCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Change Password", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              TextField(obscureText: true, controller: oldCtrl, decoration: InputDecoration(labelText: "Old Password", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              const SizedBox(height: 12),
-              TextField(obscureText: true, controller: newCtrl, decoration: InputDecoration(labelText: "New Password", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              const SizedBox(height: 12),
-              TextField(obscureText: true, controller: confirmCtrl, decoration: InputDecoration(labelText: "Confirm Password", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-              const SizedBox(height: 25),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.red))),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    onPressed: () async {
-                      if (newCtrl.text != confirmCtrl.text) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords don't match")));
-                        return;
-                      }
-                      Navigator.pop(context);
-                      final res = await getIt<ApiClient>().changePassword(
-                        oldPassword: oldCtrl.text,
-                        newPassword: newCtrl.text,
-                        confirmPassword: confirmCtrl.text,
-                      );
-                      if (res['statusCode'] == 200) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Password changed!"), backgroundColor: AppColors.primary));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed"), backgroundColor: AppColors.redColor));
-                      }
-                    },
-                    child: const Text("Update", style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

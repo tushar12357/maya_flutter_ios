@@ -15,11 +15,17 @@ class ThunderSessionService {
 
   /// Initialize Ultravox session if none exists or previous is disconnected
   void init() {
-    if (session == null ||
-        session!.status == UltravoxSessionStatus.disconnected ||
-        session!.status == UltravoxSessionStatus.disconnecting) {
-      session = UltravoxSession.create(experimentalMessages: {"debug"});
+    // If a session already exists and is NOT disconnected → reuse it, never create new
+    if (session != null &&
+        session!.status != UltravoxSessionStatus.disconnected &&
+        session!.status != UltravoxSessionStatus.disconnecting) {
+      print("Ultravox session already active — reusing existing session");
+      return;
     }
+
+    // Only create a fresh session if truly disconnected or null
+    print("Creating new Ultravox session");
+    session = UltravoxSession.create(experimentalMessages: {"debug"});
   }
 
   bool get isSessionActive {

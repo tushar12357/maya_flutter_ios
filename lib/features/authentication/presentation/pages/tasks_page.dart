@@ -350,7 +350,7 @@ Widget _tabButton(String title, bool active) {
 
     return InkWell(
       onTap: () {
-        context.push('/tasks/${task.id}', extra: {'query': task.query});
+        context.go('/tasks/${task.id}', extra: {'query': task.query});
       },
       borderRadius: BorderRadius.circular(18),
       child: Container(
@@ -368,8 +368,6 @@ Widget _tabButton(String title, bool active) {
           children: [
             Row(
               children: [
-                _tagWidget("Task", color: AppColors.primary),
-                const SizedBox(width: 10),
                 _statusTagWidget(statusText, tagColor),
               ],
             ),
