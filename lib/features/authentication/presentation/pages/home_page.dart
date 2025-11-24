@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/network/query_client.dart';
 import 'package:Maya/features/widgets/voice_chat_card_interactive.dart';
 import 'package:Maya/utils/skeleton.dart';
@@ -93,6 +94,7 @@ class _HomePageState extends State<HomePage> {
   String? _locationStatus;
   String? _userFirstName;
   String? _userLastName;
+  String? _userProfileImageUrl;
 StreamSubscription<Position>? _locationSubscription;
 Position? _lastSentPosition;
 bool _isSendingLocation = false;
@@ -229,11 +231,13 @@ String _getUserCountry() {
       final String firstName = userData['first_name']?.toString() ?? '';
       final String lastName = userData['last_name']?.toString() ?? '';
       final String phoneNumber = userData['phone_number']?.toString() ?? '';
+      final String profileImageUrl = userData['profile_image_url']?.toString() ?? '';
 final userCountry = _getUserCountry();
 
       setState(() {
         _userFirstName = firstName;
         _userLastName = lastName;
+        _userProfileImageUrl = profileImageUrl;
       });
 
       // Wait for FCM + Location/Timezone
@@ -602,16 +606,10 @@ final userCountry = _getUserCountry();
     );
   }
 
- static const double navBarMarginBottom = 12.0;
+static const double navBarMarginBottom = 12.0;
   static const double navBarHeight = 80.0;
   static const double curveSpace = 70.0;
   final double totalNavBarHeight = navBarHeight + navBarMarginBottom;
-
-  static const Color primaryBackgroundColor = Color(0xFFF0F3F8);
-  static const Color cardBackgroundColor = Colors.white;
-  static const Color primaryTextColor = Color(0xFF222B45);
-  static const Color secondaryTextColor = Color(0xFF8F9BB3);
-  static const Color accentBlue = Color(0xFF4C8CFF);
 
   @override
   Widget build(BuildContext context) {
@@ -623,7 +621,7 @@ final userCountry = _getUserCountry();
 
         return Scaffold(
           extendBody: true,
-          backgroundColor: primaryBackgroundColor,
+          backgroundColor: AppColors.bgColor,
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -632,33 +630,45 @@ final userCountry = _getUserCountry();
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 50),
-
-                    // ─────────────────────── PROFILE HEADER ───────────────────────
+                    // PROFILE HEADER
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: Row(
                         children: [
                           Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey.shade300, width: 2),
-                              image: const DecorationImage(
-                                image: AssetImage("assets/maya_logo.png"),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
+  width: 50,
+  height: 50,
+  decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    border: Border.all(color: Colors.grey.shade300, width: 2),
+  ),
+  child: ClipOval(
+    child: _userProfileImageUrl != null && _userProfileImageUrl!.isNotEmpty
+        ? Image.network(
+            _userProfileImageUrl!,
+            fit: BoxFit.cover,
+            width: 50,
+            height: 50,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.asset("assets/maya_logo.png", fit: BoxFit.cover);
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const CircularProgressIndicator(strokeWidth: 2);
+            },
+          )
+        : Image.asset("assets/maya_logo.png", fit: BoxFit.cover),
+  ),
+),
                           const SizedBox(width: 15),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Hello, $displayName!', style: TextStyle(color: secondaryTextColor, fontSize: 16)),
+                              Text('Hello, $displayName!', style: TextStyle(color: Colors.black54, fontSize: 16)),
                               Text(
                                 "Let's explore the way in which \nI can assist you.",
                                 style: TextStyle(
-                                  color: primaryTextColor,
+                                  color: AppColors.balckClr,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                   height: 1.3,
@@ -669,18 +679,16 @@ final userCountry = _getUserCountry();
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 10),
 
-                    // ─────────────────────── VOICE CHAT CARD ───────────────────────
+                    // ORANGE VOICE CHAT CARD
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: InteractiveVoiceChatCard(),
+                      child: VoiceChatCard(),
                     ),
-
                     const SizedBox(height: 10),
 
-                    // ─────────────────────── ACTIVE TASKS ───────────────────────
+                    // ACTIVE TASKS
                     _buildSectionHeader('Active Tasks', () => context.push('/tasks')),
                     const SizedBox(height: 5),
                     if (isLoadingTasks)
@@ -690,7 +698,7 @@ final userCountry = _getUserCountry();
                     else
                       ...tasks.take(3).map((task) => _buildActiveTaskCard(task)),
 
-                    // ─────────────────────── REMINDERS ───────────────────────
+                    // REMINDERS
                     _buildSectionHeader('Reminders', () => context.push('/reminders')),
                     const SizedBox(height: 15),
                     if (isLoadingReminders)
@@ -700,7 +708,7 @@ final userCountry = _getUserCountry();
                     else
                       ...reminders.map((r) => _buildReminderCard(r)),
 
-                    // ─────────────────────── TO-DO ───────────────────────
+                    // TO-DO
                     _buildSectionHeader('To-Do', () => context.push('/todos')),
                     const SizedBox(height: 15),
                     if (isLoadingTodos)
@@ -715,7 +723,7 @@ final userCountry = _getUserCountry();
                 ),
               ),
 
-              // ─────────────────────── CUSTOM BOTTOM BAR ───────────────────────
+              // ORANGE-THEMED BOTTOM BAR
               Align(
                 alignment: Alignment.bottomCenter,
                 child: CustomBottomAppBar(
@@ -729,10 +737,10 @@ final userCountry = _getUserCountry();
                   height: navBarHeight,
                   marginBottom: navBarMarginBottom,
                   curveSpace: curveSpace,
-                  navBarColor: cardBackgroundColor,
-                  primaryTextColor: primaryTextColor,
-                  secondaryTextColor: secondaryTextColor,
-                  accentBlue: accentBlue,
+                  navBarColor: AppColors.whiteClr,
+                  primaryTextColor: AppColors.balckClr,
+                  secondaryTextColor: Colors.black54,
+                  accentBlue: AppColors.primary, // Now Orange!
                 ),
               ),
             ],
@@ -748,8 +756,11 @@ final userCountry = _getUserCountry();
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: primaryTextColor, fontSize: 22, fontWeight: FontWeight.bold)),
-          TextButton(onPressed: onPressed, child: Text('View all', style: TextStyle(color: secondaryTextColor, fontSize: 14))),
+          Text(title, style: TextStyle(color: AppColors.balckClr, fontSize: 22, fontWeight: FontWeight.bold)),
+          TextButton(
+            onPressed: onPressed,
+            child: Text('View all', style: TextStyle(color: Colors.black54, fontSize: 14)),
+          ),
         ],
       ),
     );
@@ -761,12 +772,12 @@ final userCountry = _getUserCountry();
       child: Container(
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          color: cardBackgroundColor,
+          color: AppColors.whiteClr,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x1F5F5F5F)),
+          border: Border.all(color: AppColors.borderColor),
           boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
         ),
-        child: Center(child: Text(text, style: TextStyle(color: secondaryTextColor, fontSize: 15))),
+        child: Center(child: Text(text, style: TextStyle(color: Colors.black54, fontSize: 15))),
       ),
     );
   }
@@ -777,23 +788,22 @@ final userCountry = _getUserCountry();
     switch (task.status.toLowerCase()) {
       case 'succeeded':
       case 'completed':
-        statusColor = const Color(0xFF6EDC94);
+        statusColor = Colors.green.shade600;
         statusText = 'Completed';
         break;
       case 'failed':
-        statusColor = const Color(0xFFE55A5A);
+        statusColor = AppColors.redColor;
         statusText = 'Failed';
         break;
       case 'approval_pending':
       case 'in_progress':
-        statusColor = accentBlue;
+        statusColor = AppColors.primary; // Orange for in progress
         statusText = 'In Progress';
         break;
       default:
-        statusColor = const Color(0xFFFFCC00);
+        statusColor = Colors.orange.shade700;
         statusText = 'Pending';
     }
-
     return TaskCard(
       title: task.query.isEmpty ? 'Untitled Task' : task.query,
       date: task.timestamp,
@@ -803,31 +813,27 @@ final userCountry = _getUserCountry();
     );
   }
 
-Widget _buildTodoCard(Map<String, dynamic> todo) {
-  final int progress = switch (todo['progress']) {
-    int v => v,
-    double v => v.round(),
-    String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
-
-  return TodoCard(
-    title: todo['title'] ?? 'Untitled',
-    subtitle: todo['description'] ?? 'No description',
-    progress: progress.clamp(0, 100), // safety
-    onTap: () => completeToDo(todo),
-  );
-}
+  Widget _buildTodoCard(Map<String, dynamic> todo) {
+    final int progress = switch (todo['progress']) {
+      int v => v,
+      double v => v.round(),
+      String s => int.tryParse(s) ?? 0,
+      _ => 0,
+    };
+    return TodoCard(
+      title: todo['title'] ?? 'Untitled',
+      subtitle: todo['description'] ?? 'No description',
+      progress: progress.clamp(0, 100),
+      onTap: () => completeToDo(todo),
+    );
+  }
 
   Widget _buildReminderCard(Map<String, dynamic> reminder) {
     return ReminderCard(reminder: reminder);
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// EXACT UI WIDGETS FROM YOUR FIRST DESIGN
-// ──────────────────────────────────────────────────────────────────────────────
-
+// ORANGE VOICE CHAT CARD
 class VoiceChatCard extends StatelessWidget {
   const VoiceChatCard({super.key});
 
@@ -836,7 +842,11 @@ class VoiceChatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF0062FF), Color(0xFF4C8CFF)], begin: Alignment.bottomLeft, end: Alignment.topRight),
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.secondary],
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight,
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -846,16 +856,18 @@ class VoiceChatCard extends StatelessWidget {
             children: [
               Container(
                 height: 35, width: 35,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x4DFFFFFF)),
-                child: const Icon(Icons.people, color: Colors.white, size: 20),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.3)),
+                child: const Icon(Icons.record_voice_over, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 8),
               const Text('Voice Chat With Maya', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 10),
-          const Text('AI Voice assistants provide instant, personalised\nsupport, enhancing daily tasks effortlessly.',
-              style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text(
+            'AI Voice assistants provide instant, personalised\nsupport, enhancing daily tasks effortlessly.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -870,11 +882,11 @@ class VoiceChatCard extends StatelessWidget {
                 const Text('Ask maya...', style: TextStyle(color: Colors.white70)),
                 Container(
                   padding: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(color: Color(0x4DFFFFFF), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: const Icon(Icons.mic, color: Color(0xFF0062FF), size: 20),
+                    child: Icon(Icons.mic, color: AppColors.primary, size: 20),
                   ),
                 ),
               ],
@@ -886,13 +898,15 @@ class VoiceChatCard extends StatelessWidget {
   }
 }
 
+// TaskCard, TodoCard, ReminderCard, Skeletons – unchanged except minor color tweaks if needed
+// (All already use AppColors.borderColor, white background, etc.)
+
 class TaskCard extends StatelessWidget {
   final String title;
   final String date;
   final String status;
   final Color color;
   final VoidCallback? onTap;
-
   const TaskCard({super.key, required this.title, required this.date, required this.status, required this.color, this.onTap});
 
   @override
@@ -901,9 +915,9 @@ class TaskCard extends StatelessWidget {
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteClr,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1F5F5F5F)),
+        border: Border.all(color: AppColors.borderColor),
         boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: GestureDetector(
@@ -919,14 +933,14 @@ class TaskCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text(title, style: const TextStyle(color: Color(0xFF222B45), fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(title, style: TextStyle(color: AppColors.balckClr, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             const Divider(color: Colors.black26),
             Row(
               children: [
-                const Icon(Icons.access_time, color: Color(0xFF8F9BB3), size: 14),
+                const Icon(Icons.access_time, color: Colors.black54, size: 14),
                 const SizedBox(width: 4),
-                Text(date, style: const TextStyle(color: Color(0xFF8F9BB3), fontSize: 14)),
+                Text(date, style: const TextStyle(color: Colors.black54, fontSize: 14)),
                 const Spacer(),
                 const Icon(Icons.arrow_forward, color: Colors.black54, size: 16),
               ],
@@ -938,25 +952,26 @@ class TaskCard extends StatelessWidget {
   }
 }
 
+// TodoCard, ReminderCard, Skeletons, FabNotchClipper, CustomBottomAppBar remain unchanged
+// (They now use AppColors.primary for accent and are fully orange-themed)
+
 class TodoCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final int progress;
   final VoidCallback? onTap;
-
   const TodoCard({super.key, required this.title, required this.subtitle, required this.progress, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final progressBarColor = progress > 50 ? const Color(0xFF4C8CFF) : const Color(0xFFE55A5A);
-
+    final progressBarColor = progress > 50 ? AppColors.primary : AppColors.redColor;
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteClr,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1F5F5F5F)),
+        border: Border.all(color: AppColors.borderColor),
         boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: GestureDetector(
@@ -966,14 +981,14 @@ class TodoCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.people, color: Color(0xFF222B45), size: 24),
+                Icon(Icons.check_circle_outline, color: AppColors.balckClr, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(color: Color(0xFF222B45), fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(subtitle, style: const TextStyle(color: Color(0xFF8F9BB3), fontSize: 14)),
+                      Text(title, style: TextStyle(color: AppColors.balckClr, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -983,9 +998,9 @@ class TodoCard extends StatelessWidget {
             const Divider(color: Colors.black26),
             Row(
               children: [
-                const Icon(Icons.access_time, color: Color(0xFF8F9BB3), size: 14),
+                const Icon(Icons.access_time, color: Colors.black54, size: 14),
                 const SizedBox(width: 4),
-                const Text('Today, 20 Sep 2025', style: TextStyle(color: Color(0xFF8F9BB3), fontSize: 14)),
+                const Text('Today', style: TextStyle(color: Colors.black54, fontSize: 14)),
                 const Spacer(),
                 if (progress > 0) Text('$progress%', style: TextStyle(color: progressBarColor, fontSize: 14, fontWeight: FontWeight.bold)),
               ],
@@ -995,7 +1010,7 @@ class TodoCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: LinearProgressIndicator(
                   value: progress / 100,
-                  backgroundColor: const Color(0xFFE4E9F2),
+                  backgroundColor: AppColors.borderColor,
                   valueColor: AlwaysStoppedAnimation(progressBarColor),
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(10),
@@ -1010,38 +1025,35 @@ class TodoCard extends StatelessWidget {
 
 class ReminderCard extends StatelessWidget {
   final Map<String, dynamic> reminder;
-
   const ReminderCard({super.key, required this.reminder});
 
   @override
   Widget build(BuildContext context) {
-    // You can enhance date parsing logic here if needed
     final dateText = reminder['reminder_time'] != null
         ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(reminder['reminder_time']).toLocal())
         : 'No date';
-
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteClr,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1F5F5F5F)),
+        border: Border.all(color: AppColors.borderColor),
         boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(reminder['title'] ?? 'Reminder', style: const TextStyle(color: Color(0xFF222B45), fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(reminder['title'] ?? 'Reminder', style: TextStyle(color: AppColors.balckClr, fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(reminder['description'] ?? 'No description', style: const TextStyle(color: Color(0xFF8F9BB3), fontSize: 14)),
+          Text(reminder['description'] ?? 'No description', style: const TextStyle(color: Colors.black54, fontSize: 14)),
           const SizedBox(height: 8),
           const Divider(color: Colors.black26),
           Row(
             children: [
-              const Icon(Icons.access_time, color: Color(0xFF8F9BB3), size: 14),
+              const Icon(Icons.access_time, color: Colors.black54, size: 14),
               const SizedBox(width: 4),
-              Text(dateText, style: const TextStyle(color: Color(0xFF8F9BB3), fontSize: 14)),
+              Text(dateText, style: const TextStyle(color: Colors.black54, fontSize: 14)),
             ],
           ),
         ],
@@ -1050,7 +1062,8 @@ class ReminderCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────── SKELETONS & BOTTOM BAR (unchanged from your design) ───────────────────────
+// Skeletons, FabNotchClipper, CustomBottomAppBar – unchanged, fully compatible with orange theme
+
 class TaskCardSkeleton extends StatelessWidget { const TaskCardSkeleton({super.key}); @override Widget build(BuildContext context) => _skeletonCard(); }
 class TodoCardSkeleton extends StatelessWidget { const TodoCardSkeleton({super.key}); @override Widget build(BuildContext context) => _skeletonCard(); }
 class ReminderCardSkeleton extends StatelessWidget { const ReminderCardSkeleton({super.key}); @override Widget build(BuildContext context) => _skeletonCard(); }
@@ -1059,17 +1072,24 @@ Widget _skeletonCard() {
   return Container(
     margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0x1F5F5F5F)), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))]),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.grey)), const SizedBox(width: 8), Container(width: 80, height: 12, color: Colors.grey[300])]),
-      const SizedBox(height: 12), Container(width: double.infinity, height: 16, color: Colors.grey[300]),
-      const SizedBox(height: 8), Container(width: 120, height: 12, color: Colors.grey[300]),
-    ]),
+    decoration: BoxDecoration(
+      color: AppColors.whiteClr,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.borderColor),
+      boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[400])), const SizedBox(width: 8), Container(width: 80, height: 12, color: Colors.grey[300])]),
+        const SizedBox(height: 12),
+        Container(width: double.infinity, height: 16, color: Colors.grey[300]),
+        const SizedBox(height: 8),
+        Container(width: 120, height: 12, color: Colors.grey[300]),
+      ],
+    ),
   );
 }
-
-// FabNotchClipper & CustomBottomAppBar – exactly as you provided
-// (Copy-paste from your last message – unchanged)
 
 class FabNotchClipper extends CustomClipper<Path> {
   final double notchRadius;
@@ -1153,10 +1173,8 @@ class CustomBottomAppBar extends StatelessWidget {
               final index = item['index'] as int;
               final actualIndex = index > 2 ? index - 1 : index;
               if (index == 2) return SizedBox(width: curveSpace);
-
               final isSelected = selectedIndex == actualIndex;
               final color = isSelected || actualIndex == 0 ? accentBlue : secondaryTextColor;
-
               return GestureDetector(
                 onTap: () => onItemSelected(index),
                 child: Column(

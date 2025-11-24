@@ -1,3 +1,4 @@
+import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_event.dart';
@@ -7,11 +8,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 
-// ------------------------------------------------------------------
-// USER MODEL – matches your API response
-// ------------------------------------------------------------------
+
+
+// ================================================================
+// USER MODEL (unchanged)
+// ================================================================
 class User {
-  final int? id; // <-- Now nullable
+  final int? id;
   final String firstName;
   final String lastName;
   final String email;
@@ -33,9 +36,8 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     final data = json['data']['data'] as Map<String, dynamic>;
-    print(data);
     return User(
-      id: data['ID'] as int?, // <-- Safe cast
+      id: data['ID'] as int?,
       firstName: data['first_name'] as String,
       lastName: data['last_name'] as String,
       email: data['email'] as String,
@@ -47,13 +49,12 @@ class User {
   }
 
   String get fullName => '$firstName $lastName';
-  String get initials =>
-      firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
+  String get initials => firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U';
 }
 
-// ------------------------------------------------------------------
-// OTHER PAGE – fetches user from ApiClient
-// ------------------------------------------------------------------
+// ================================================================
+// OTHER PAGE - Full Profile Screen with Your Design & Colors
+// ================================================================
 class OtherPage extends StatefulWidget {
   const OtherPage({super.key});
 
@@ -74,9 +75,7 @@ class _OtherPageState extends State<OtherPage> {
 
   Future<void> _fetchUser() async {
     try {
-      // Use your real ApiClient
       final result = await GetIt.I<ApiClient>().getCurrentUser();
-
       if (result['statusCode'] == 200 && result['data']['success'] == true) {
         setState(() {
           _user = User.fromJson(result);
@@ -96,297 +95,252 @@ class _OtherPageState extends State<OtherPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Background color
-          Container(color: const Color(0xFF111827)),
-          // Gradient overlay
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x992A57E8), Colors.transparent],
-              ),
-            ),
-          ),
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      backgroundColor: AppColors.bgColor,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
+                  // ==================== HEADER ====================
+                  _buildHeader(),
+                  const SizedBox(height: 25),
 
-                  // Profile Section – Real Data
-                  _buildProfileSection(context),
+                  // ==================== FEATURE TILES ====================
+                  _buildTile(
+                    title: "Generations",
+                    icon: Icons.auto_awesome,
+                    color: const Color(0xFFE3CCF8), // Pastel purple (as in original design)
+                    onTap: () => context.go('/generations'),
+                  ),
+                  _buildTile(
+                    title: "Reminders",
+                    icon: Icons.lock_clock,
+                    color: const Color(0xFFCFE9FF), // Pastel blue
+                    onTap: () => context.go('/reminders'),
+                  ),
+                  _buildTile(
+                    title: "To-Do",
+                    icon: Icons.check_circle_outline,
+                    color: const Color(0xFFCFF5E1), // Pastel green
+                    onTap: () => context.go('/todos'),
+                  ),
+                  _buildTile(
+                    title: "Integrations",
+                    icon: Icons.link,
+                    color: const Color(0xFFFFE6C9), // Pastel orange
+                    onTap: () => context.go('/integrations'),
+                  ),
+                  _buildTile(
+                    title: "Energy",
+                    icon: Icons.energy_savings_leaf_outlined,
+color: const Color(0xff00C75A).withOpacity(0.2),                    onTap: () {
+                      // Replace with your actual Energy screen route
+                      context.go('/energy');
+                    },
+                  ),
 
-                  const SizedBox(height: 16),
-                  _buildFeatureTiles(context),
-                  const SizedBox(height: 32),
-                  _buildLogoutButton(context),
-                ],
-              ),
-            ),
-          ),
+                  const SizedBox(height: 30),
 
-          // Loading / Error Overlay
-          if (_isLoading)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-            )
-          else if (_error != null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'Failed to load user: $_error',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // --------------------------------------------------------------
-  // PROFILE SECTION – uses real user data
-  // --------------------------------------------------------------
-Widget _buildProfileSection(BuildContext context) {
-  final name = _user?.fullName ?? '';
-  final email = _user?.email ?? '';
-  final avatarUrl = _user?.profile_image_url;
-  final initials = _user?.initials ?? 'U';
-
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: const Color(0xFF2D4A6F).withOpacity(0.6),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white.withOpacity(0.1)),
-    ),
-    child: Row(
-      children: [
-        // ────────────────────── PROFILE AVATAR WITH IMAGE + FALLBACK ──────────────────────
-        ClipOval(
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF2A57E8), Color(0xFF1D4ED8)],
-              ),
-            ),
-            child: avatarUrl != null && avatarUrl.isNotEmpty
-                ? CachedNetworkImage(                  // ← Recommended for performance
-                    imageUrl: avatarUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  // ==================== LOGOUT BUTTON ====================
+                  InkWell(
+                    onTap: () async {
+                      BlocProvider.of<AuthBloc>(context).add(LogoutRequested());
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      context.go('/login');
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        gradient: const LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            AppColors.primary,   // #F97418
+                            AppColors.secondary, // #ECB48D
+                          ],
                         ),
                       ),
-                    ),
-                  )
-                : Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.logout, color: Colors.white),
+                          SizedBox(width: 12),
+                          Text(
+                            "Logout",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                email,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color.fromRGBO(189, 189, 189, 1),
-                ),
-              ),
-            ],
-          ),
-        ),
-        OutlinedButton(
-          onPressed: () => context.go('/profile'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF2A57E8),
-            side: const BorderSide(color: Color(0xFF2A57E8)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: const Text(
-            'Edit',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-  // --------------------------------------------------------------
-  // FEATURE TILES (vertical list)
-  // --------------------------------------------------------------
-  Widget _buildFeatureTiles(BuildContext context) {
-    return Column(
-      children: [
-        _buildFeatureTile(
-          context: context,
-          route: '/generations',
-          icon: Icons.add,
-          iconColor: const Color(0xFF2A57E8),
-          backgroundColor: const Color(0xFF2A57E8),
-          title: 'Generations',
-        ),
-        const SizedBox(height: 12),
-        _buildFeatureTile(
-          context: context,
-          route: '/reminders',
-          icon: Icons.notifications_outlined,
-          iconColor: const Color(0xFF2A57E8),
-          backgroundColor: const Color(0xFF2A57E8),
-          title: 'Reminders',
-        ),
-        const SizedBox(height: 12),
-        _buildFeatureTile(
-          context: context,
-          route: '/todos',
-          icon: Icons.check,
-          iconColor: const Color(0xFF2A57E8),
-          backgroundColor: const Color(0xFF2A57E8),
-          title: 'To-Do',
-        ),
-        const SizedBox(height: 12),
-        _buildFeatureTile(
-          context: context,
-          route: '/integrations',
-          icon: Icons.settings_outlined,
-          iconColor: const Color(0xFF2A57E8),
-          backgroundColor: const Color(0xFF2A57E8),
-          title: 'Integrations',
-        ),
-      ],
-    );
-  }
 
-  Widget _buildFeatureTile({
-    required BuildContext context,
-    required String route,
-    required IconData icon,
-    required Color iconColor,
-    required Color backgroundColor,
-    required String title,
-  }) {
-    return GestureDetector(
-      onTap: () => context.go(route),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2D4A6F).withOpacity(0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: backgroundColor.withOpacity(0.1),
-                shape: BoxShape.circle,
+                  const SizedBox(height: 40),
+                ],
               ),
-              child: Icon(icon, size: 24, color: iconColor),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+
+            // ==================== LOADING OVERLAY ====================
+            if (_isLoading)
+              Container(
+                color: Colors.black54,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 3,
+                  ),
                 ),
               ),
-            ),
-            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF6B7280)),
+
+            // ==================== ERROR OVERLAY ====================
+            if (_error != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.redColor, size: 64),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load profile',
+                        style: TextStyle(
+                          color: AppColors.balckClr,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        style: TextStyle(color: AppColors.redColor),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  // --------------------------------------------------------------
-  // LOGOUT BUTTON
-  // --------------------------------------------------------------
-Widget _buildLogoutButton(BuildContext context) {
-  return SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-      onPressed: () async {
-        final authBloc=BlocProvider.of<AuthBloc>(context);
-        authBloc.add(LogoutRequested());
-        await Future.delayed(const Duration(milliseconds: 100));
-          context.go('/login');
+  // ==================== HEADER WITH AVATAR & EDIT ====================
+  Widget _buildHeader() {
+    final avatarUrl = _user?.profile_image_url;
+    final initials = _user?.initials ?? 'U';
 
-      },
-      icon: const Icon(Icons.logout, color: Colors.white, size: 18),
-      label: const Text(
-        'Log out',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundColor: AppColors.greyColor,
+          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+              ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+              : null,
+          child: (avatarUrl == null || avatarUrl.isEmpty)
+              ? Text(
+                  initials,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.balckClr,
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _user?.fullName ?? 'Loading...',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.balckClr,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _user?.email ?? '',
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                "Member since October 2025",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        InkWell(
+          onTap: () => context.go('/profile'), // or your edit profile route
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.secondary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              "Edit",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== REUSABLE TILE ====================
+  Widget _buildTile({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        height: 56,
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: AppColors.balckClr.withOpacity(0.85)),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.balckClr,
+              ),
+            ),
+          ],
         ),
       ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color.fromARGB(255, 207, 25, 25),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 0,
-      ),
-    ),
-  );
-}
-
+    );
+  }
 }

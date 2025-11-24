@@ -97,6 +97,8 @@ dependencies:
   dio_cache_interceptor: ^4.0.5
   flutter_riverpod: ^3.0.3
   flutter_tanstack_query: ^0.0.1+3
+  fl_chart: ^1.1.1
+  curved_navigation_bar: ^1.0.6
 
 dev_dependencies:
   flutter_test:
@@ -121,6 +123,18 @@ flutter:
     - assets/Layer_1.png
     - assets/maya_logo.png
     - assets/avatar.png
+    - assets/google_calendar.png
+    - assets/gohighlevel.png
+    - assets/fireflies.png
+    - assets/asana.png
+    - assets/meta.png
+    - assets/stripe.png
+    - assets/animation.png
+    - assets/home.png
+    - assets/task.png
+    - assets/setup.png
+    - assets/other.png
+    - assets/star.png
     - assets/typing.mp3
 
   # To add assets to your application, add an assets section, like this:

@@ -1,4 +1,5 @@
 import 'package:Maya/features/authentication/presentation/pages/forgot_password.dart';
+import 'package:Maya/features/authentication/presentation/pages/energy_page.dart';
 import 'package:Maya/features/widgets/talk_to_maya.dart';
 import 'package:Maya/utils/tab_layout.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +29,7 @@ import 'package:Maya/features/widgets/ghl.dart';
 import 'package:Maya/features/widgets/task_detail.dart';
 
 class AppRouter {
-  // Paths
+  // Pathsx
   static const splash = '/';
   static const login = '/login';
 
@@ -48,7 +49,7 @@ class AppRouter {
   static const todos = '/todos';
   static const reminders = '/reminders';
   static const forgotPassword = '/forgot-password';
-
+  static const energy = '/energy';
   // Nested/detail
   static const taskDetail = '/tasks/:taskId';
 
@@ -104,33 +105,31 @@ class AppRouter {
         GoRoute(path: login, builder: (_, __) => const LoginPage()),
 
         // ✅ Tabs (wrapped in TabLayout so bottom nav is visible)
+      ShellRoute(
+      builder: (context, state, child) => TabLayout(child: child),
+      routes: [
         GoRoute(
           path: home,
-          builder: (_, __) =>
-              const TabLayout(currentIndex: 0, child: HomePage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: HomePage()),
         ),
         GoRoute(
           path: tasks,
-          builder: (_, __) =>
-              const TabLayout(currentIndex: 1, child: TasksPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: TasksPage()),
         ),
         GoRoute(
           path: maya,
-          builder: (_, __) =>
-              const TabLayout(currentIndex: 2, child: TalkToMaya()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: TalkToMaya()),
         ),
         GoRoute(
           path: settings,
-          builder: (_, __) =>
-              const TabLayout(currentIndex: 3, child: SettingsPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: SettingsPage()),
         ),
         GoRoute(
           path: other,
-          builder: (_, __) =>
-              const TabLayout(currentIndex: 4, child: OtherPage()),
+          pageBuilder: (context, state) => const NoTransitionPage(child: OtherPage()),
         ),
-
-        // ✅ Detail under tasks (no bottom nav by default; change if you want)
+      ],
+    ),        // ✅ Detail under tasks (no bottom nav by default; change if you want)
         GoRoute(
           path: taskDetail,
           builder: (_, state) => TaskDetailPage(
@@ -156,6 +155,7 @@ class AppRouter {
         GoRoute(path: todos, builder: (_, __) => const TodosPage()),
         GoRoute(path: reminders, builder: (_, __) => const RemindersPage()),
         GoRoute(path: forgotPassword, builder: (_, __) => const ForgotPasswordPage()),
+        GoRoute(path: energy, builder: (_, __) => const EnergyPage(data: {},)),
       ],
     );
   }
@@ -175,6 +175,7 @@ class AppRouter {
       generations,
       todos,
       reminders,
+      energy,
     };
     return protectedFixed.contains(loc) ||
         loc.startsWith('/tasks/') ||

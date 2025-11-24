@@ -28,6 +28,7 @@ class _TalkToMayaState extends State<TalkToMaya>
   bool _ignoreTranscripts = false;
   bool _isResetting = false;
   String _lastSentText = ''; // To prevent double typed messages
+String? _profileImageUrl;
 
   // === Services & Session ===
   final ThunderSessionService _shared = ThunderSessionService();
@@ -65,11 +66,30 @@ bool _wasMutedByCall = false; // Track if we muted due to call
     _isSpeakerMuted = _shared.isSpeakerMuted;
     _currentTranscriptChunk = _shared.currentTranscript;
     _conversation = List.from(_shared.conversation);
+    _fetchUserProfile();
+
 _setupCallInterruptionHandler();
     _setupAnimations();
     _setupListeners();
     _updateWakelock();
   }
+
+
+  Future<void> _fetchUserProfile() async {
+  try {
+    final res = await _apiClient.getCurrentUser();
+    print("USER API RESPONSE: $res");
+    if (res['statusCode'] == 200) {
+      final data = res['data'];
+      setState(() {
+        _profileImageUrl = data['data']['profile_image_url'];
+      });
+    }
+  } catch (e) {
+    print("USER API ERROR: $e");
+  }
+}
+
 
   void _setupAnimations() {
     _orbController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
@@ -208,11 +228,7 @@ _updateWakelock();
   // ===================================================================
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      if (_shared.isSessionActive) {
-        _resetEverything();
-      }
-    }
+   
   }
 
   // ===================================================================
@@ -489,155 +505,285 @@ void _onDataMessage() {
 
  
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF111827),
-      body: Stack(
+@override
+Widget build(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
+
+  return Scaffold(
+    backgroundColor: Colors.grey.shade50,
+    resizeToAvoidBottomInset: true,
+    body: SafeArea(
+      child:
+      Column(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0x992A57E8), Colors.transparent],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          // Top Controls: Mic + Speaker
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _isSpeakerMuted ? Icons.volume_off : Icons.volume_up,
+                    color: _controlsDisabled ? Colors.grey.shade400 : Colors.black87,
+                    size: 26,
+                  ),
+                  onPressed: _controlsDisabled ? null : _toggleSpeakerMute,
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  icon: Icon(
+                    _isMicMuted ? Icons.mic_off : Icons.mic_none,
+                    color: _controlsDisabled ? Colors.grey.shade400 : Colors.black87,
+                    size: 26,
+                  ),
+                  onPressed: _controlsDisabled ? null : _toggleMicMute,
+                ),
+              ],
+            ),
+          ),
+
+          // Status Text
+          Text(
+            _status,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Central Image / Orb (Replace with your animation or keep static)
+          GestureDetector(
+            onTap: () => _isListening || _isConnecting ? _onStop() : _onStart(),
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_orbController, _speakingPulseController]),
+              builder: (_, __) => Transform.scale(
+                scale: _orbScaleAnimation.value * _speakingPulseAnimation.value,
+                child: Container(
+                  width: screenWidth * 0.5,
+                  height: screenWidth * 0.5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: 
+                         Image.asset(
+                            'assets/animation.png', // Replace with your actual image
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                ),
               ),
             ),
           ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _isMicMuted ? Icons.mic_off : Icons.mic,
-                          color: _controlsDisabled
-                              ? Colors.grey
-                              : (_isMicMuted ? Colors.grey : Colors.white),
-                        ),
-                        onPressed: _controlsDisabled ? null : _toggleMicMute,
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isSpeakerMuted ? Icons.volume_off : Icons.volume_up,
-                          color: _controlsDisabled
-                              ? Colors.grey
-                              : (_isSpeakerMuted ? Colors.grey : Colors.white),
-                        ),
-                        onPressed: _controlsDisabled ? null : _toggleSpeakerMute,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(_status, style: const TextStyle(color: Colors.white70, fontSize: 17)),
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () => _isListening || _isConnecting ? _onStop() : _onStart(),
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([_orbController, _speakingPulseController]),
-                    builder: (_, __) => Transform.scale(
-                      scale: _orbScaleAnimation.value * _speakingPulseAnimation.value,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          image: DecorationImage(
-                            image: AssetImage('assets/maya_logo.png'),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        child: _isConnecting
-                            ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
-                            : null,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    itemCount: _conversation.length + (_currentTranscriptChunk.isNotEmpty ? 1 : 0),
-                    itemBuilder: (_, i) {
-                      if (_currentTranscriptChunk.isNotEmpty && i == _conversation.length) {
-                        return Align(
-                          alignment: Alignment.centerLeft,
+
+          const SizedBox(height: 20),
+
+          // Chat Messages
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              itemCount: _conversation.length + (_currentTranscriptChunk.isNotEmpty ? 1 : 0),
+              itemBuilder: (context, i) {
+                if (_currentTranscriptChunk.isNotEmpty && i == _conversation.length) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      children: [
+                       CircleAvatar(
+  radius: 18,
+  backgroundColor: Colors.transparent,
+  child: ClipOval(
+    child: Image.asset(
+      "assets/animation.png",
+      fit: BoxFit.cover,
+      width: 36,
+      height: 36,
+    ),
+  ),
+),
+
+
+                        const SizedBox(width: 10),
+                        Flexible(
                           child: Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.09),
-                              borderRadius: BorderRadius.circular(18),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Text(
                               _currentTranscriptChunk,
-                              style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.black87,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ),
-                        );
-                      }
-                      final msg = _conversation[i];
-                      final isUser = msg['type'] == 'user';
-                      return Align(
-                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(isUser ? 0.22 : 0.12),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Text(msg['text'], style: const TextStyle(color: Colors.white)),
                         ),
-                      );
-                    },
+                      ],
+                    ),
+                  );
+                }
+
+                final msg = _conversation[i];
+                final isUser = msg['type'] == 'user';
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: isUser
+                        ? [
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  msg['text'],
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            CircleAvatar(
+  radius: 18,
+  backgroundColor: Colors.grey.shade300,
+  child: ClipOval(
+    child: _profileImageUrl != null
+        ? Image.network(
+            _profileImageUrl!,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              "assets/user.png",
+              width: 36,
+              height: 36,
+              fit: BoxFit.cover,
+            ),
+          )
+        : Image.asset(
+            "assets/user.png",
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+          ),
+  ),
+),
+
+                          ]
+                        : [
+                            CircleAvatar(
+  radius: 18,
+  backgroundColor: Colors.transparent,
+  child: ClipOval(
+    child: Image.asset(
+      "assets/animation.png",
+      fit: BoxFit.cover,
+      width: 36,
+      height: 36,
+    ),
+  ),
+),
+
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  msg['text'],
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                            ),
+                          ],
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Text Input + Send Button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: TextField(
+                      controller: _textController,
+                      focusNode: _focusNode,
+                      enabled: !_controlsDisabled,
+                      style: const TextStyle(color: Colors.black87),
+                      decoration: const InputDecoration(
+                        hintText: "Ask maya...",
+                        hintStyle: TextStyle(color: Colors.grey),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.only(top: 12),
+                      ),
+                      onSubmitted: (_) => _handleSendMessage(),
+                    ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _textController,
-                          focusNode: _focusNode,
-                          enabled: !_controlsDisabled,
-                          decoration: InputDecoration(
-                            hintText: 'Type here...',
-                            hintStyle: const TextStyle(color: Colors.grey),
-                            filled: true,
-                            fillColor: const Color(0xFF1E293B),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          style: const TextStyle(color: Colors.white),
-                          onSubmitted: (_) => _handleSendMessage(),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: _controlsDisabled ? null : _handleSendMessage,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF2A57E8), Color(0xFF6A0DAD)],
-                            ),
-                          ),
-                          child: const Icon(Icons.send, color: Colors.white),
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: _controlsDisabled ? null : _handleSendMessage,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black,
+                    ),
+                    child: const Icon(Icons.send, color: Colors.white, size: 17),
                   ),
                 ),
               ],
@@ -645,6 +791,7 @@ void _onDataMessage() {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

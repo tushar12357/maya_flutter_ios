@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:Maya/utils/debouncer.dart';
+import 'package:Maya/core/constants/colors.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -269,31 +270,32 @@ class _SettingsPageState extends State<SettingsPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2937),
+        backgroundColor: AppColors.whiteClr,
         title: Text(
           'Connect to $ssid',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppColors.balckClr),
         ),
         content: TextField(
           obscureText: true,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppColors.balckClr),
           decoration: const InputDecoration(
             hintText: 'Enter password',
-            hintStyle: TextStyle(color: Colors.grey),
+            hintStyle: TextStyle(color: AppColors.greyColor),
+            border: OutlineInputBorder(),
           ),
           onChanged: (v) => pass = v,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.balckClr)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _sendWifiCredentials(ssid, pass);
             },
-            child: const Text('Connect', style: TextStyle(color: Colors.blue)),
+            child: const Text('Connect', style: TextStyle(color: AppColors.primary)),
           ),
         ],
       ),
@@ -445,7 +447,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF1F2937)),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.balckClr,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -457,16 +463,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       body: Stack(
         children: [
-          Container(color: const Color(0xFF111827)),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x992A57E8), Colors.transparent],
-              ),
-            ),
-          ),
+         Container(color: AppColors.bgColor), // Light greyish-white background
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -479,7 +476,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.balckClr,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -510,7 +507,7 @@ class _SettingsPageState extends State<SettingsPage> {
               color: Colors.black.withOpacity(0.4),
               child: const Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A57E8)),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 ),
               ),
             ),
@@ -530,7 +527,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: _buildActionButton(
             icon: Icons.power_settings_new,
             label: 'Power Off',
-            color: const Color(0xFFEF4444),
+            color: AppColors.redColor,
             onTap: () => setState(() => _showShutdownModal = true),
           ),
         ),
@@ -539,7 +536,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: _buildActionButton(
             icon: Icons.restart_alt,
             label: 'Restart',
-            color: const Color(0xFF6B7280),
+            color: AppColors.primary,
             onTap: () => setState(() => _showRestartModal = true),
           ),
         ),
@@ -557,8 +554,8 @@ class _SettingsPageState extends State<SettingsPage> {
             label: 'Wi-Fi',
             status: _wifiConnected ? 'On' : 'Off',
             iconColor: _wifiConnected
-                ? const Color(0xFF10B981)
-                : const Color(0xFF6B7280),
+                ? AppColors.primary
+                : AppColors.balckClr,
           ),
         ),
         const SizedBox(width: 12),
@@ -568,8 +565,8 @@ class _SettingsPageState extends State<SettingsPage> {
             label: 'Bluetooth',
             status: _bluetoothEnabled ? 'On' : 'Off',
             iconColor: _bluetoothEnabled
-                ? const Color(0xFF3B82F6)
-                : const Color(0xFF6B7280),
+                ? AppColors.primary
+                : AppColors.primary,
           ),
         ),
       ],
@@ -587,7 +584,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.battery_charging_full,
                 label: 'Battery',
                 value: '87%',
-                iconColor: const Color(0xFF10B981),
+                iconColor: AppColors.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -596,7 +593,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.thermostat,
                 label: 'Temperature',
                 value: '32°C',
-                iconColor: const Color(0xFFF59E0B),
+                iconColor: AppColors.primary,
               ),
             ),
           ],
@@ -609,7 +606,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.schedule,
                 label: 'Uptime',
                 value: '18h',
-                iconColor: const Color(0xFF3B82F6),
+                iconColor: AppColors.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -618,7 +615,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.system_update,
                 label: 'Firmware',
                 value: 'v2.4.1',
-                iconColor: const Color(0xFF8B5CF6),
+                iconColor: AppColors.primary,
               ),
             ),
           ],
@@ -669,7 +666,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildActionButton(
             icon: Icons.mic,
             label: 'Wake Maya',
-            color: const Color(0xFF2A57E8),
+            color: AppColors.primary,
             onTap: _wakeMaya,
           ),
         ],
@@ -697,14 +694,14 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2937),
+              color: AppColors.whiteClr,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF374151)),
+              border: Border.all(color: AppColors.borderColor),
             ),
             child: Center(
               child: Text(
                 _bleStatus,
-                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                style: const TextStyle(color: AppColors.greyColor, fontSize: 14),
               ),
             ),
           ),
@@ -724,7 +721,7 @@ class _SettingsPageState extends State<SettingsPage> {
         if (_wifiConnected) ...[
           const SizedBox(height: 12),
           if (_bleWifiNetworks.isEmpty)
-            Text(_bleStatus, style: const TextStyle(color: Color(0xFF9CA3AF)))
+            Text(_bleStatus, style: const TextStyle(color: AppColors.greyColor))
           else
             ..._bleWifiNetworks.map(
               (net) => GestureDetector(
@@ -830,9 +827,16 @@ class _SettingsPageState extends State<SettingsPage> {
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F2937).withOpacity(0.6),
+          color: AppColors.whiteClr,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF374151)),
+          border: Border.all(color: AppColors.borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -842,7 +846,7 @@ class _SettingsPageState extends State<SettingsPage> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.balckClr,
               ),
             ),
             const SizedBox(height: 12),
@@ -861,9 +865,9 @@ class _SettingsPageState extends State<SettingsPage> {
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2937),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF374151)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -891,9 +895,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFF1F2937),
+      color: AppColors.whiteClr,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFF374151)),
+      border: Border.all(color: AppColors.borderColor),
     ),
     child: Row(
       children: [
@@ -906,14 +910,14 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.balckClr,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
                 status,
-                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+                style: const TextStyle(color: AppColors.greyColor, fontSize: 12),
               ),
             ],
           ),
@@ -930,9 +934,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFF1F2937),
+      color: AppColors.whiteClr,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFF374151)),
+      border: Border.all(color: AppColors.borderColor),
     ),
     child: Row(
       children: [
@@ -944,12 +948,12 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+                style: const TextStyle(color: AppColors.balckClr, fontSize: 12),
               ),
               Text(
                 value,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.balckClr,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -974,7 +978,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.balckClr,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -982,7 +986,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(
             '${value.round()}%',
             style: const TextStyle(
-              color: Color(0xFF2A57E8),
+              color: AppColors.primary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -991,10 +995,10 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       SliderTheme(
         data: SliderThemeData(
-          activeTrackColor: const Color(0xFF2A57E8),
-          inactiveTrackColor: const Color(0xFF374151),
-          thumbColor: const Color(0xFF2A57E8),
-          overlayColor: const Color(0xFF2A57E8).withOpacity(0.2),
+            activeTrackColor: AppColors.primary,
+          inactiveTrackColor: AppColors.borderColor,
+          thumbColor: AppColors.primary,
+          overlayColor: AppColors.primary.withOpacity(0.2),
           trackHeight: 4,
         ),
         child: Slider(value: value, min: 0, max: 100, onChanged: onChanged),
@@ -1012,7 +1016,7 @@ class _SettingsPageState extends State<SettingsPage> {
       Text(
         label,
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.balckClr,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
@@ -1020,9 +1024,10 @@ class _SettingsPageState extends State<SettingsPage> {
       Switch(
         value: value,
         onChanged: onChanged,
-        activeThumbColor: const Color(0xFF2A57E8),
-        inactiveThumbColor: const Color(0xFF6B7280),
-        inactiveTrackColor: const Color(0xFF374151),
+        activeTrackColor: AppColors.primary.withOpacity(0.3),
+        activeColor: AppColors.primary,
+        inactiveThumbColor: Colors.white,
+        inactiveTrackColor: AppColors.borderColor,
       ),
     ],
   );
@@ -1034,10 +1039,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFF1F2937),
+      color: AppColors.whiteClr,
       borderRadius: BorderRadius.circular(8),
       border: Border.all(
-        color: connected ? const Color(0xFF2A57E8) : const Color(0xFF374151),
+        color: connected ? AppColors.primary : AppColors.borderColor,
       ),
     ),
     child: Row(
@@ -1048,8 +1053,8 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(
               Icons.wifi,
               color: connected
-                  ? const Color(0xFF2A57E8)
-                  : const Color(0xFF6B7280),
+                  ? AppColors.primary
+                  : AppColors.greyColor,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -1059,7 +1064,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.balckClr,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1067,7 +1072,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   signal,
                   style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
+                    color: AppColors.greyColor,
                     fontSize: 12,
                   ),
                 ),
@@ -1079,13 +1084,13 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF2A57E8).withOpacity(0.2),
+              color: AppColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
               'Connected',
               style: TextStyle(
-                color: Color(0xFF2A57E8),
+                color: AppColors.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -1104,28 +1109,28 @@ class _SettingsPageState extends State<SettingsPage> {
     child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2937),
+        color: AppColors.whiteClr,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF374151)),
+        border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+              Icon(icon, color: AppColors.primary, size: 20),
               const SizedBox(width: 12),
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.balckClr,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-          const Icon(Icons.chevron_right, color: Color(0xFF6B7280), size: 20),
+          Icon(Icons.chevron_right, color: AppColors.greyColor, size: 20),
         ],
       ),
     ),
@@ -1141,7 +1146,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _shutdownDevice();
     },
     actionLabel: 'Shutdown',
-    actionColor: const Color(0xFFEF4444),
+    actionColor: AppColors.redColor,
   );
 
   Widget _buildRestartModal() => _modal(
@@ -1153,7 +1158,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _rebootDevice();
     },
     actionLabel: 'Restart',
-    actionColor: const Color(0xFF2A57E8),
+    actionColor: AppColors.primary,
   );
 
   Widget _modal({
@@ -1170,9 +1175,9 @@ class _SettingsPageState extends State<SettingsPage> {
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F2937),
+          color: AppColors.whiteClr,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF374151)),
+          border: Border.all(color: AppColors.borderColor),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1182,13 +1187,13 @@ class _SettingsPageState extends State<SettingsPage> {
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.balckClr,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               body,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+              style: const TextStyle(fontSize: 14, color: AppColors.greyColor),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -1197,7 +1202,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Expanded(
                   child: TextButton(
                     onPressed: cancel,
-                    child: _modalButton('Cancel', const Color(0xFF374151)),
+                    child: _modalButton('Cancel', AppColors.borderColor),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1224,10 +1229,10 @@ class _SettingsPageState extends State<SettingsPage> {
     child: Center(
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: bg == AppColors.borderColor ? AppColors.balckClr : Colors.white,
         ),
       ),
     ),

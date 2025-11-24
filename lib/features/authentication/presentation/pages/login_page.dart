@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:Maya/features/authentication/presentation/bloc/auth_state.dart';
-
+import 'package:Maya/core/constants/colors.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -16,7 +16,6 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
   bool _rememberMe = false;
   bool _obscurePassword = true;
 
@@ -38,13 +37,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Colors
-  final Color bg = Colors.white;
-  final Color textColor = Colors.black87;
+  // Updated Colors using AppColors
+  final Color bg = AppColors.whiteClr;
+  final Color textColor = AppColors.balckClr;
   final Color hint = Colors.black45;
-  final Color border = Colors.black12;
-  final Color btn1 = const Color(0xFF3AA0FF);
-  final Color btn2 = const Color(0xFF004BDD);
+  final Color border = AppColors.borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20), // cleaner padding
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
               const SizedBox(height: 60),
@@ -66,7 +63,7 @@ class _LoginPageState extends State<LoginPage> {
                   width: size.width * 0.70,
                   height: size.width * 0.70,
                   child: Image.asset(
-                    'assets/Layer_1.png',
+                    'assets/animation.png',
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Icon(Icons.cloud, size: 120, color: Colors.grey),
                   ),
@@ -74,7 +71,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
 
               const SizedBox(height: 10),
-
               Text(
                 "Login to Access Your",
                 style: TextStyle(fontSize: 22, color: textColor, fontWeight: FontWeight.w600),
@@ -129,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
                             children: [
                               Checkbox(
                                 value: _rememberMe,
-                                activeColor: btn1,
+                                activeColor: AppColors.primary, // Orange checkbox
                                 onChanged: (v) => setState(() => _rememberMe = v ?? false),
                               ),
                               Text("Remember me", style: TextStyle(color: hint)),
@@ -145,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 30),
 
-                    // FIXED LOGIN BUTTON – full width, perfect height, gradient
+                    // ORANGE GRADIENT LOGIN BUTTON
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -159,7 +155,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: Ink(
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF3AA0FF), Color(0xFF004BDD)]),
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppColors.secondary, // Light orange
+                                AppColors.primary,   // Deep orange
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
                             borderRadius: BorderRadius.circular(30),
                           ),
                           child: Container(
@@ -169,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
                                 if (state is AuthAuthenticated) context.go('/home');
                                 if (state is AuthError) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(state.message), backgroundColor: Colors.red.shade600),
+                                    SnackBar(content: Text(state.message), backgroundColor: AppColors.redColor),
                                   );
                                 }
                               },
@@ -193,8 +196,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
 
                     const SizedBox(height: 40),
-
-                    // Optional: you can add the rest (divider, social buttons, signup link) here again if you want them back
+                    // You can add social login, divider, signup link here later if needed
                   ],
                 ),
               ),

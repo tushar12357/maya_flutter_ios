@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -705,266 +706,220 @@ void dispose() {
 
 
   
+@override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgColor,
+   appBar: AppBar(
+  centerTitle: false,   // <-- add this
+  leading: IconButton(
+    icon: const Icon(Icons.arrow_back, color: Colors.black),
+    onPressed: () => context.go('/other'),
+  ),
+  title: const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Integrations',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      Text(
+        'Connected apps and services',
+        style: TextStyle(
+          color: Colors.grey,
+          fontSize: 14,
+        ),
+      ),
+    ],
+  ),
+  backgroundColor: Colors.white,
+  elevation: 0,
+  systemOverlayStyle: SystemUiOverlayStyle(
+    statusBarBrightness: Brightness.light,
+  ),
+),    body: _isInitializing
+          ? const Center(child: CircularProgressIndicator())
+          : _isLoadingStatus
+              ? ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: integrations.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, __) => const _SkeletonCard(),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: integrations.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final integration = integrations[index];
+                    return GestureDetector(
+                      onTap: () {
+                        if (integration.id == 'google-calendar') {
+                          _handleGoogleSignIn(integration);
+                        } else if (integration.id == 'gohighlevel') {
+                          _launchURL(
+                              'https://marketplace.gohighlevel.com/oauth/chooselocation?...'); // (your long URL)
+                        } else if (integration.id == 'fireflies') {
+                          _showFirefliesKeyPopup();
+                        } else if (integration.id == 'asana') {
+                          _handleAsanaSignIn(integration);
+                        } else if (integration.id == 'meta') {
+                          _handleMetaSignIn(integration);
+                        } else if (integration.id == 'stripe') {
+                          _handleStripeSignIn(integration);
+                        }
+                      },
+                      child: IntegrationCard(
+                        // You can replace with actual asset paths later
+                        icon: 'assets/${integration.id.replaceAll('-', '_')}.png',
+                        title: integration.name,
+                        subtitle: integration.description,
+                        status: integration.connected
+                            ? 'Connected'
+                            : 'Not Connected',
+                        statusColor:
+                            integration.connected ? Colors.green : AppColors.redColor,
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+// New clean card exactly matching the design you provided
+class IntegrationCard extends StatelessWidget {
+  const IntegrationCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.statusColor,
+  });
+
+  final String icon;
+  final String title;
+  final String subtitle;
+  final String status;
+  final Color statusColor;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Background color
-          Container(color: const Color(0xFF111827)),
-          // Gradient overlay
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x992A57E8), Colors.transparent],
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(
+                  image: AssetImage(icon),
+                  fit: BoxFit.cover,
+                  onError: (_, __) => const Icon(Icons.broken_image),
+                ),
               ),
             ),
-          ),
-          // Main content
-          SafeArea(
-            child: _isInitializing
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  )
-                : Column(
-                    children: [
-                      // Custom Header with Back Button
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => context.push('/other'),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF111827,
-                                  ).withOpacity(0.8),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.1),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_back,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Integrations',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const Spacer(),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: const Text(
-                          'Connected apps and services',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromRGBO(189, 189, 189, 1),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: _isLoadingStatus
-                            ? ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                itemCount: integrations.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (context, index) =>
-                                    const _SkeletonItem(),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                itemCount: integrations.length,
-                                separatorBuilder: (context, index) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (context, index) {
-                                  final integration = integrations[index];
-                                  return GestureDetector(
-                                    onTap: () {
-                                      if (integration.id ==
-                                            'google-calendar') {
-                                          _handleGoogleSignIn(integration);
-                                        } else if (integration.id ==
-                                            'gohighlevel') {
-                                          _launchURL(
-                                            'https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fmaya.ravan.ai%2Fapi%2Fcrm%2Fleadconnector%2Fcode&client_id=68755e91a1a7f90cd15877d5-me8gas4x&scope=socialplanner%2Fpost.readonly+saas%2Flocation.write+socialplanner%2Foauth.readonly+saas%2Flocation.read+socialplanner%2Foauth.write+conversations%2Freports.readonly+calendars%2Fresources.write+campaigns.readonly+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+calendars%2Fgroups.readonly+calendars%2Fgroups.write+calendars%2Fresources.readonly+calendars%2Fevents.write+calendars%2Fevents.readonly+calendars.write+calendars.readonly+businesses.write+businesses.readonly+conversations%2Flivechat.write+contacts.readonly+contacts.write+objects%2Fschema.readonly+objects%2Fschema.write+objects%2Frecord.readonly+objects%2Frecord.write+associations.write+associations.readonly+associations%2Frelation.readonly+associations%2Frelation.write+courses.write+courses.readonly+forms.readonly+forms.write+invoices.readonly+invoices.write+invoices%2Fschedule.readonly+invoices%2Fschedule.write+invoices%2Ftemplate.readonly+invoices%2Ftemplate.write+invoices%2Festimate.readonly+invoices%2Festimate.write+links.readonly+lc-email.readonly+links.write+locations%2FcustomValues.readonly+medias.write+medias.readonly+locations%2Ftemplates.readonly+locations%2Ftags.write+funnels%2Fredirect.readonly+funnels%2Fpage.readonly+funnels%2Ffunnel.readonly+oauth.write+oauth.readonly+opportunities.readonly+opportunities.write+socialplanner%2Fpost.write+socialplanner%2Faccount.readonly+socialplanner%2Faccount.write+socialplanner%2Fcsv.readonly+socialplanner%2Fcsv.write+socialplanner%2Fcategory.readonly+socialplanner%2Ftag.readonly+store%2Fshipping.readonly+socialplanner%2Fstatistics.readonly+store%2Fshipping.write+store%2Fsetting.readonly+surveys.readonly+store%2Fsetting.write+workflows.readonly+emails%2Fschedule.readonly+emails%2Fbuilder.write+emails%2Fbuilder.readonly+wordpress.site.readonly+blogs%2Fpost.write+blogs%2Fpost-update.write+blogs%2Fcheck-slug.readonly+blogs%2Fcategory.readonly+blogs%2Fauthor.readonly+socialplanner%2Fcategory.write+socialplanner%2Ftag.write+blogs%2Fposts.readonly+blogs%2Flist.readonly+charges.readonly+charges.write+marketplace-installer-details.readonly+twilioaccount.read+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2FsendLink.write+documents_contracts_template%2Flist.readonly+products%2Fcollection.write+products%2Fcollection.readonly+products%2Fprices.write+products%2Fprices.readonly+products.write+products.readonly+payments%2Fcustom-provider.write+payments%2Fcoupons.write+payments%2Fcustom-provider.readonly+payments%2Fcoupons.readonly+payments%2Fsubscriptions.readonly+payments%2Ftransactions.readonly+payments%2Fintegration.write+payments%2Fintegration.readonly+payments%2Forders.write+payments%2Forders.readonly+funnels%2Fredirect.write+funnels%2Fpagecount.readonly&version_id=68755e91a1a7f90cd15877d5',
-                                          );
-                                        } else if (integration.id ==
-                                            'fireflies') {
-                                          _showFirefliesKeyPopup();
-                                        }else if(integration.id == 'asana') {
-                                          _handleAsanaSignIn(integration);
-                                        }else if(integration.id == 'meta') {
-                                          _handleMetaSignIn(integration);
-                                        }else if(integration.id == 'stripe') {
-                                          _handleStripeSignIn(integration);
-                                        }
-                                      
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFF2D4A6F,
-                                        ).withOpacity(0.6),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.1),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          // Icon
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: integration.iconColor
-                                                  .withOpacity(0.2),
-                                            ),
-                                            child: Icon(
-                                              integration.icon,
-                                              color: integration.iconColor,
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  integration.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  integration.connected
-                                                      ? 'Connected'
-                                                      : 'Not Connected',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: integration.connected
-                                                        ? Colors.white
-                                                        : const Color(
-                                                            0xFFEF4444,
-                                                          ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.chevron_right,
-                                            color: const Color.fromRGBO(
-                                              189,
-                                              189,
-                                              189,
-                                              1,
-                                            ),
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
                   ),
-          ),
-        ],
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: statusColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SkeletonItem extends StatelessWidget {
-  const _SkeletonItem();
+// Skeleton card for loading state (matches new design)
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D4A6F).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Row(
-        children: [
-          // Icon skeleton
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white24,
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title skeleton
-                Container(
-                  height: 16,
-                  width: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(4),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 16,
+                    width: 140,
+                    color: Colors.grey[300],
                   ),
-                ),
-                const SizedBox(height: 6),
-                // Status skeleton
-                Container(
-                  height: 14,
-                  width: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(4),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 14,
+                    width: double.infinity,
+                    color: Colors.grey[300],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 12,
+                    width: 80,
+                    color: Colors.grey[300],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            color: Color.fromRGBO(189, 189, 189, 1),
-            size: 24,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

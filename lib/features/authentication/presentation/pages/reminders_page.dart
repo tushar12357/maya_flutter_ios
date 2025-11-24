@@ -1,9 +1,11 @@
+import 'dart:ui';
 import 'package:Maya/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:Maya/core/constants/colors.dart';
 
 class RemindersPage extends StatefulWidget {
   const RemindersPage({super.key});
@@ -18,12 +20,12 @@ class _RemindersPageState extends State<RemindersPage> {
   final ScrollController _scrollController = ScrollController();
   DateTime selectedDate = DateTime.now();
 
-  // 24 hours = 2400px → 1 hour = 100px → 1 minute = 100/60 = 1.6667px
-// NEW — TALLER & MORE SPACIOUS (recommended)
-static const double pixelsPerHour = 160.0;        // was 100 → now 60% taller
-static const double pixelsPerMinute = pixelsPerHour / 60.0; // auto = 2.666px per minute
-static const double cardHeight = 64.0;            // was 48 → now 33% taller
-static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller day)
+  // Timeline settings
+  static const double pixelsPerHour = 160.0;
+  static const double pixelsPerMinute = pixelsPerHour / 60.0;
+  static const double cardHeight = 68.0;
+  static const double fullDayHeight = 24 * pixelsPerHour;
+
   @override
   void initState() {
     super.initState();
@@ -47,12 +49,7 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
       if (response['success'] == true) {
         final raw = (response['data'] as Map<String, dynamic>?)?['data'] as List<dynamic>? ?? [];
         final fetched = raw.cast<Map<String, dynamic>>();
-
-        fetched.sort((a, b) {
-          return DateTime.parse(a['reminder_time'])
-              .compareTo(DateTime.parse(b['reminder_time']));
-        });
-
+        fetched.sort((a, b) => DateTime.parse(a['reminder_time']).compareTo(DateTime.parse(b['reminder_time'])));
         setState(() => reminders = fetched);
       }
     } catch (e) {
@@ -74,14 +71,11 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
     _fetchRemindersForDate();
   }
 
-  // PERFECT MINUTE-LEVEL MAPPING + AUTO SIDE-BY-SIDE
   List<Widget> _buildReminderCards() {
-    final double timelineLeft = 63.0; // 60px labels + 3px blue line
-    final double availableWidth = MediaQuery.of(context).size.width - timelineLeft - 20;
+    const double timelineLeft = 70.0;
+    final double availableWidth = MediaQuery.of(context).size.width - timelineLeft - 40;
 
-    // Group reminders by exact minute
     final Map<int, List<_ReminderBlock>> groups = {};
-
     for (var r in reminders) {
       final dt = DateTime.parse(r['reminder_time']).toLocal();
       final totalMinutes = dt.hour * 60 + dt.minute;
@@ -95,72 +89,74 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
     }
 
     final List<Widget> cards = [];
-
     groups.forEach((minute, list) {
-      final double exactTop = minute * pixelsPerMinute;
-      final double centeredTop = exactTop - (cardHeight / 2);
-
+      final double top = minute * pixelsPerMinute - (cardHeight / 2);
       final int count = list.length;
-      final double cardWidth = (availableWidth / count) - 12;
+      final double cardWidth = (availableWidth / count) - 10;
 
       for (int i = 0; i < list.length; i++) {
         final block = list[i];
-        final double left = timelineLeft + 10 + (i * (cardWidth + 12));
+        final double left = timelineLeft + 16 + (i * (cardWidth + 10));
 
         cards.add(
           Positioned(
-            top: centeredTop,
+            top: top,
             left: left,
             height: cardHeight,
             width: cardWidth,
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(24),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(24),
-                onTap: () => _showReminderDetail(block.reminder),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: block.isPast
-                          ? [const Color(0xFF2D4A6F), const Color(0xFF1e3a5f)]
-                          : [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.25)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.whiteClr,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.borderColor, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.bell, size: 18, color: Colors.amber),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          block.reminder['title'] ?? 'Reminder',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => _showReminderDetail(block.reminder),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: block.isPast ? Colors.grey.shade400 : AppColors.primary,
+                            shape: BoxShape.circle,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      Text(
-                        block.timeText,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            block.reminder['title'] ?? 'Reminder',
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          block.timeText,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -179,43 +175,50 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
+        initialChildSize: 0.65,
         minChildSize: 0.4,
         maxChildSize: 0.95,
         builder: (_, controller) => Container(
           decoration: const BoxDecoration(
-            color: Color(0xFF1A2333),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            color: AppColors.whiteClr,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: ListView(
             controller: controller,
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
             children: [
               Center(
                 child: Container(
                   width: 40,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: AppColors.greyColor,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 children: [
-                  Icon(LucideIcons.bell, color: Colors.amber, size: 32),
-                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(LucideIcons.bell, color: AppColors.primary, size: 28),
+                  ),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       reminder['title'] ?? 'Reminder',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
@@ -224,35 +227,35 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
               const SizedBox(height: 16),
               Text(
                 reminder['description'] ?? 'No description provided.',
-                style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.8), height: 1.5),
+                style: const TextStyle(fontSize: 16, color: Colors.black54, height: 1.5),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2D4A6F).withOpacity(0.3),
+                  color: AppColors.bgColor,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    const Icon(LucideIcons.calendar, color: Colors.white70, size: 20),
-                    const SizedBox(width: 12),
+                    Icon(LucideIcons.calendar, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 14),
                     Text(
                       DateFormat('EEEE, MMMM d, yyyy • h:mm a').format(dt),
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      style: const TextStyle(fontSize: 15, color: Colors.black87),
                     ),
                   ],
                 ),
               ),
               if (isPast)
                 Padding(
-                  padding: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.only(top: 20),
                   child: Text(
                     "This reminder has passed",
-                    style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
+                    style: TextStyle(color: AppColors.redColor, fontStyle: FontStyle.italic, fontSize: 15),
                   ),
                 ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -265,164 +268,169 @@ static const double fullDayHeight = 24 * pixelsPerHour; // auto = 3840px (taller
     final weekStart = _getWeekStart(selectedDate);
     final weekDays = List.generate(7, (i) => weekStart.add(Duration(days: i)));
     final dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    final headerText = selectedDate.isToday ? "Today's reminders" : DateFormat('MMM dd').format(selectedDate);
+    final headerDate = DateFormat('EEEE, d MMMM yyyy').format(selectedDate);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
+      backgroundColor: AppColors.bgColor,
+      appBar: AppBar(
+        backgroundColor: AppColors.whiteClr,
+        elevation: 0,
+        leading: InkWell(
+          onTap: () => context.go('/other'),
+          child: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 18),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text("Reminders", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+            Text("Manage all reminders", style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+      ),
+      body: Column(
         children: [
-          Container(color: const Color(0xFF111827)),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x992A57E8), Colors.transparent],
-              ),
+          // Date Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(headerDate, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Container(
+                  height: 40,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.whiteClr,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                  ),
+                  child: const Icon(Icons.add, color: Colors.black, size: 22),
+                ),
+              ],
             ),
           ),
-          SafeArea(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                : Column(
+
+          // Week Selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (index) {
+                final day = weekDays[index];
+                final isSelected = day.year == selectedDate.year && day.month == selectedDate.month && day.day == selectedDate.day;
+
+                return GestureDetector(
+                  onTap: () {
+                    if (!isSelected) {
+                      setState(() => selectedDate = day);
+                      _fetchRemindersForDate();
+                    }
+                  },
+                  child: Column(
                     children: [
-                      // Header
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => context.push('/other'),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF111827).withOpacity(0.8),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                ),
-                                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('Reminders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                            const Spacer(),
-                          ],
+                      Text(
+                        dayNames[index],
+                        style: TextStyle(
+                          color: isSelected ? AppColors.secondary : Colors.black54,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(headerText, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Week Picker
-                      Row(
-                        children: [
-                          IconButton(onPressed: _previousWeek, icon: const Icon(Icons.chevron_left, color: Colors.white)),
-                          Expanded(
-                            child: SizedBox(
-                              height: 60,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: 7,
-                                itemBuilder: (_, i) {
-                                  final day = weekDays[i];
-                                  final isCurrent = day.year == selectedDate.year && day.month == selectedDate.month && day.day == selectedDate.day;
-                                  return GestureDetector(
-                                    onTap: () {
-                                      if (!isCurrent) {
-                                        setState(() => selectedDate = day);
-                                        _fetchRemindersForDate();
-                                      }
-                                    },
-                                    child: Container(
-                                      width: 46,
-                                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: isCurrent ? const Color(0xFF2A57E8).withOpacity(0.2) : null,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text(dayNames[i], style: TextStyle(fontSize: 11, color: Colors.white70)),
-                                          const SizedBox(height: 4),
-                                          Text('${day.day}',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                                color: isCurrent ? const Color(0xFF2A57E8) : Colors.white,
-                                              )),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 44,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.secondary.withOpacity(0.15) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${day.day}',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? AppColors.secondary : Colors.black87,
                             ),
                           ),
-                          IconButton(onPressed: _nextWeek, icon: const Icon(Icons.chevron_right, color: Colors.white)),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Timeline — Perfect 1440-minute mapping
-                      Expanded(
-                        child: reminders.isEmpty
-                            ? const Center(child: Text('No reminders today', style: TextStyle(color: Colors.white70, fontSize: 16)))
-                            : SingleChildScrollView(
-                                controller: _scrollController,
-                                physics: const BouncingScrollPhysics(),
-                                child: SizedBox(
-                                  height: fullDayHeight,
-                                  child: Stack(
-                                    children: [
-                                      // Hour labels
-                                      ...List.generate(25, (h) {
-                                        final top = h * pixelsPerHour;
-                                        final label = h == 0
-                                            ? '12 AM'
-                                            : (h == 12
-                                                ? '12 PM'
-                                                : (h > 12 ? '${h - 12} PM' : '$h AM'));
-                                        return Positioned(
-                                          top: top,
-                                          left: 0,
-                                          child: SizedBox(
-                                            width: 60,
-                                            height: pixelsPerHour,
-                                            child: Align(
-                                              alignment: Alignment.topRight,
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(right: 8, top: 4),
-                                                child: Text(label, style: const TextStyle(fontSize: 11, color: Colors.white60)),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }),
-
-                                      // Blue timeline
-                                      Positioned(left: 60, top: 0, bottom: 0, child: Container(width: 3, color: const Color(0xFF2A57E8))),
-
-                                      // Subtle hour lines
-                                      ...List.generate(24, (h) => Positioned(
-                                            top: h * pixelsPerHour,
-                                            left: 63,
-                                            right: 0,
-                                            child: Container(height: 0.5, color: Colors.white.withOpacity(0.1)),
-                                          )),
-
-                                      // ONE-LINE CARDS — PERFECTLY MAPPED
-                                      ..._buildReminderCards(),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                        ),
                       ),
                     ],
                   ),
+                );
+              }),
+            ),
           ),
+
+          const SizedBox(height: 16),
+
+          // Timeline Area
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: AppColors.whiteClr,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.borderColor),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    : reminders.isEmpty
+                        ? Center(
+                            child: Text("No reminders today", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                          )
+                        : SingleChildScrollView(
+                            controller: _scrollController,
+                            physics: const BouncingScrollPhysics(),
+                            child: SizedBox(
+                              height: fullDayHeight,
+                              child: Stack(
+                                children: [
+                                  // Hour Labels
+                                  ...List.generate(25, (h) {
+                                    final top = h * pixelsPerHour;
+                                    final label = h == 0
+                                        ? '12 AM'
+                                        : h == 12
+                                            ? '12 PM'
+                                            : h > 12
+                                                ? '${h - 12} PM'
+                                                : '$h AM';
+                                    return Positioned(
+                                      top: top + 12,
+                                      left: 16,
+                                      child: Text(label, style: TextStyle(fontSize: 12, color: Colors.black54)),
+                                    );
+                                  }),
+                                  // Vertical Timeline Line
+                                  Positioned(
+                                    left: 64,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: Container(width: 3, color: AppColors.primary),
+                                  ),
+                                  // Horizontal Lines
+                                  ...List.generate(24, (h) => Positioned(
+                                        top: h * pixelsPerHour,
+                                        left: 70,
+                                        right: 0,
+                                        child: Container(height: 0.5, color: AppColors.borderColor),
+                                      )),
+                                  // Reminder Cards
+                                  ..._buildReminderCards(),
+                                ],
+                              ),
+                            ),
+                          ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 // lib/core/widgets/skeleton_item.dart
+import 'package:Maya/core/constants/colors.dart';
 import 'package:flutter/material.dart';
 
 /// A reusable skeleton card that mimics the integration / list-item UI
@@ -11,9 +12,9 @@ class SkeletonItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2D4A6F).withOpacity(0.6),
+        color: AppColors.whiteClr,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
         children: [
@@ -23,7 +24,7 @@ class SkeletonItem extends StatelessWidget {
             height: 40,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white24,
+              color: AppColors.borderColor,
             ),
           ),
           const SizedBox(width: 12),
@@ -38,7 +39,7 @@ class SkeletonItem extends StatelessWidget {
                   height: 16,
                   width: 120,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: AppColors.borderColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -49,7 +50,7 @@ class SkeletonItem extends StatelessWidget {
                   height: 14,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: AppColors.borderColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -60,7 +61,7 @@ class SkeletonItem extends StatelessWidget {
           // Chevron placeholder
           const Icon(
             Icons.chevron_right,
-            color: Color.fromRGBO(189, 189, 189, 1),
+            color: AppColors.borderColor,
             size: 24,
           ),
         ],

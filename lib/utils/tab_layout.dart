@@ -1,227 +1,157 @@
+// tab_layout.dart
+import 'package:Maya/core/constants/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:feather_icons/feather_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:Maya/features/authentication/presentation/pages/home_page.dart';
+import 'package:Maya/features/authentication/presentation/pages/tasks_page.dart';
+import 'package:Maya/features/widgets/talk_to_maya.dart';
+import 'package:Maya/features/authentication/presentation/pages/settings_page.dart';
+import 'package:Maya/features/authentication/presentation/pages/other_page.dart';
 
-class TabLayout extends StatelessWidget {
+class TabLayout extends StatefulWidget {
   final Widget child;
-    final int currentIndex;
- const TabLayout({
-    super.key,
-    required this.child,
-    required this.currentIndex,
-  });
+  const TabLayout({super.key, required this.child});
 
-  static const _tabs = [
-    {'route': '/home', 'icon': FeatherIcons.home,           'label': 'Home'},
-    {'route': '/tasks', 'icon': FeatherIcons.checkSquare,   'label': 'Tasks'},
-    {'route': '/maya',  'icon': FeatherIcons.star,          'label': 'Maya'},
-    {'route': '/settings','icon': FeatherIcons.settings,    'label': 'Settings'},
-    {'route': '/other', 'icon': FeatherIcons.moreHorizontal,'label': 'Other'},
-  ];
-
-  int _currentIndexFromRoute(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    final index = _tabs.indexWhere(
-      (tab) => location == tab['route'] || location.startsWith('${tab['route']}/'),
-    );
-    return index == -1 ? 0 : index;
-  }
-
-  Future<bool> _handleBack(BuildContext context) async {
-  final rootNavigator = Navigator.of(context, rootNavigator: true);
-
-  if (rootNavigator.canPop()) {
-    rootNavigator.pop();
-    return false; // don't close app
-  }
-
-  return true; // allow app exit
+  @override
+  State<TabLayout> createState() => _TabLayoutState();
 }
 
+class _TabLayoutState extends State<TabLayout> {
+  // Keep all tab screens alive
+  static final List<Widget> _tabPages = [
+    const HomePage(),
+    const TasksPage(),
+    const TalkToMaya(),
+    const SettingsPage(),
+    const OtherPage(),
+  ];
+
+  int get currentIndex {
+    final location = GoRouterState.of(context).uri.path;
+    return switch (location) {
+      '/home' => 0,
+      '/tasks' => 1,
+      '/maya' => 2,
+      '/settings' => 3,
+      '/other' => 4,
+      _ => 0,
+    };
+  }
+
+  void _onTabTapped(int index) {
+    final routes = ['/home', '/tasks', '/maya', '/settings', '/other'];
+    context.go(routes[index]); // Important: go() not push()
+  }
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = _currentIndexFromRoute(context);
-
-    return WillPopScope(
-      onWillPop: () => _handleBack(context),
-      child: Scaffold(
-        backgroundColor: const Color(0xFF111827),
-        extendBody: true,
-        body: child,
-        bottomNavigationBar: _buildBottomNavigationBar(context, currentIndex),
+    return Scaffold(
+      backgroundColor: AppColors.bgColor, // Light background
+      extendBody: true,
+      body: IndexedStack(
+        index: currentIndex,
+        children: _tabPages, // Never rebuilt → keeps state
+      ),
+      bottomNavigationBar: CurvedNavigationBar(
+        key: const ValueKey('curved_nav'),
+        index: currentIndex,
+        height: 75,
+        color: AppColors.whiteClr, // Nav bar background
+        buttonBackgroundColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        animationDuration: const Duration(milliseconds: 300),
+        items: [
+          _buildNavItem('assets/home.png', 'Home', 0),
+          _buildNavItem('assets/task.png', 'Tasks', 1),
+          _buildCenterItem(),
+          _buildNavItem('assets/setup.png', 'Setup', 3),
+          _buildNavItem('assets/other.png', 'Others', 4),
+        ],
+        onTap: _onTabTapped,
       ),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
-    const activeColor = Color(0xFF60A5FA);
-    const inactiveColor = Color(0xFF9CA3AF);
-    const backgroundColor = Color(0xFF1E293B);
+  Widget _buildNavItem(String asset, String label, int index) {
+    final bool isSelected = currentIndex == index;
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      height: 90,
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: CustomPaint(
-                  painter: _NavBarNotchPainter(),
-                  child: Row(
-                    children: List.generate(_tabs.length, (index) {
-                      final tab = _tabs[index];
-                      final isActive = currentIndex == index;
-                      final isCentral = index == 2;
-
-                      if (isCentral) {
-                        return const Expanded(child: SizedBox());
-                      }
-
-                      return Expanded(
-                        child: InkWell(
-                          onTap: () {
-                            if (!isActive) {
-                              context.push(tab['route'] as String);
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  tab['icon'] as IconData,
-                                  size: 22,
-                                  color: isActive ? activeColor : inactiveColor,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  tab['label'] as String,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: isActive ? activeColor : inactiveColor,
-                                  ),
-                                ),
-                                if (isActive)
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    width: 32,
-                                    height: 3,
-                                    decoration: BoxDecoration(
-                                      color: activeColor,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 0,
-            child: GestureDetector(
-              onTap: () {
-                if (currentIndex != 2) {
-                  context.push('/maya');
-                }
-              },
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: isSelected ? const EdgeInsets.all(10) : EdgeInsets.zero,
+          decoration: isSelected
+              ? const BoxDecoration(
+                  color: AppColors.primary, // Orange circle when active
                   shape: BoxShape.circle,
-                  boxShadow: [
+                )
+              : null,
+          child: Image.asset(
+            asset,
+            height: 26,
+            color: isSelected ? Colors.white : AppColors.balckClr.withOpacity(0.5),
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          isSelected ? label : '',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCenterItem() {
+    final bool isSelected = currentIndex == 2;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: isSelected ? const EdgeInsets.all(16) : const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isSelected
+                  ? [AppColors.primary, AppColors.primary.withOpacity(0.8)]
+                  : [AppColors.primary.withOpacity(0.7), AppColors.primary.withOpacity(0.5)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            boxShadow: isSelected
+                ? [
                     BoxShadow(
-                      color: const Color(0xFF3B82F6).withOpacity(0.6),
+                      color: AppColors.primary.withOpacity(0.5),
                       blurRadius: 20,
-                      spreadRadius: 2,
+                      spreadRadius: 3,
                       offset: const Offset(0, 8),
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: const Icon(
-                    FeatherIcons.star,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ),
+                  ]
+                : null,
           ),
-        ],
-      ),
+          child: const Icon(
+            Icons.auto_awesome,
+            size: 34,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          isSelected ? 'AI' : '',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
-}
-
-class _NavBarNotchPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(0, size.height)
-      ..lineTo(size.width, size.height)
-      ..lineTo(size.width, 0);
-
-    final notchCenter = size.width / 2;
-    const notchRadius = 38.0;
-
-    path
-      ..moveTo(notchCenter - notchRadius - 10, 0)
-      ..quadraticBezierTo(
-          notchCenter - notchRadius, -5, notchCenter - notchRadius + 5, -10)
-      ..arcToPoint(
-        Offset(notchCenter + notchRadius - 5, -10),
-        radius: const Radius.circular(notchRadius),
-        clockwise: false,
-      )
-      ..quadraticBezierTo(
-          notchCenter + notchRadius, -5, notchCenter + notchRadius + 10, 0);
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
 }

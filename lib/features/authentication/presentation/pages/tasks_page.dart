@@ -1,3 +1,4 @@
+import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/utils/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
@@ -40,13 +41,14 @@ class TaskDetail {
 
     return TaskDetail(
       id: json['id']?.toString() ?? 'Unknown',
-      query:
-          json['user_payload']?['task']?.toString() ??
+      query: json['user_payload']?['task']?.toString() ??
           json['query']?.toString() ??
           'No query',
       status: status.isNotEmpty
           ? status
-          : (success ? 'complete' : (error.isNotEmpty ? 'failed' : 'pending')),
+          : (success
+              ? 'complete'
+              : (error.isNotEmpty ? 'failed' : 'pending')),
       error: error.isNotEmpty ? error : 'None',
       timestamp: formattedTimestamp,
     );
@@ -101,7 +103,7 @@ class _TasksPageState extends State<TasksPage> {
         return 'scheduled';
       case 'all':
       default:
-        return null; // backend returns everything
+        return null;
     }
   }
 
@@ -130,17 +132,14 @@ class _TasksPageState extends State<TasksPage> {
             data['data']?['sessions'] as List<dynamic>? ?? [];
 
         setState(() {
-          final newTasks = taskList
-              .map((json) => TaskDetail.fromJson(json))
-              .toList();
+          final newTasks =
+              taskList.map((json) => TaskDetail.fromJson(json)).toList();
           if (page == 1) {
             tasks = newTasks;
           } else {
             tasks.addAll(newTasks);
           }
-          hasMore =
-              newTasks.isNotEmpty &&
-              taskList.length >= 20; // assuming 20 per page
+          hasMore = newTasks.isNotEmpty && taskList.length >= 20;
           currentPage = page;
           isLoading = false;
           isLoadingMore = false;
@@ -173,14 +172,12 @@ class _TasksPageState extends State<TasksPage> {
 
   String _getFilterStatus(String status) {
     final lower = status.toLowerCase();
-
     if (lower == 'succeeded') return 'succeeded';
     if (lower == 'failed') return 'failed';
     if (lower == 'pending') return 'pending';
     if (lower == 'approval-pending') return 'approval-pending';
     if (lower == 'scheduled') return 'scheduled';
-
-    return 'pending'; // fallback
+    return 'pending';
   }
 
   @override
@@ -190,360 +187,263 @@ class _TasksPageState extends State<TasksPage> {
       return _getFilterStatus(task.status) == selectedFilter;
     }).toList();
 
+    // Background color from the design
+    const Color scaffoldBg = Color(0xffF6F8FC);
+
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background matching splash page
-          Container(color: const Color(0xFF111827)),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x992A57E8), // #2A57E8 at 60%
-                  Colors.transparent,
-                ],
+      backgroundColor: AppColors.bgColor,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              const SizedBox(height: 24),
+
+              // Tasks Header
+              const Text(
+                "Tasks",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.balckClr,
+                ),
               ),
-            ),
-          ),
+              const SizedBox(height: 12),
 
-          SafeArea(
-            child: Column(
-              children: [
-                // Tasks section
-                // ──────────────────────────────────────────────────────────────
-                //  Replace the current heading (the Row with the Text "Tasks")
-                //  with the block below
-                // ──────────────────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Main title – same size as SettingsPage ("Doll Setup")
-                      const Text(
-                        'Tasks',
-                        style: TextStyle(
-                          fontSize: 20, // ← matches SettingsPage
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // 2. Optional subtitle (mirrors the look of SettingsPage)
-                      Text(
-                        'View and manage all your tasks',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
+              // Filter Tabs
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _tabButton("All Tasks", selectedFilter == 'all'),
+                    const SizedBox(width: 10),
+                    _tabButton("Completed", selectedFilter == 'succeeded'),
+                    const SizedBox(width: 10),
+                    _tabButton("Pending", selectedFilter == 'pending'),
+                    const SizedBox(width: 10),
+                    _tabButton("In Progress", selectedFilter == 'approval-pending'),
+                    const SizedBox(width: 10),
+                    _tabButton("Failed", selectedFilter == 'failed'),
+                  ],
                 ),
-                const SizedBox(height: 12),
+              ),
 
-                // Filter chips
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip('all', 'All'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('succeeded', 'Completed'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('failed', 'Failed'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('pending', 'Pending'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip(
-                          'approval-pending',
-                          'Approval Pending',
-                        ),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('scheduled', 'Scheduled'),
-                      ],
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 16),
 
-                const SizedBox(height: 12),
-
-                // Tasks list
-                Expanded(
-                  child: isLoading
-                      ? ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                          itemCount: 5,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) => const SkeletonItem(),
-                        )
-                      : errorMessage != null
+              // Loading / Error / Empty / List
+              isLoading
+                  ? ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 5,
+                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                      itemBuilder: (_, __) => const SkeletonItem(),
+                    )
+                  : errorMessage != null
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                errorMessage!,
-                                style: const TextStyle(
-                                  color: Color(0xFFEF4444),
-                                  fontSize: 16,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () => fetchTasks(page: 1),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF3B82F6),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text('Retry'),
-                              ),
-                            ],
+                          child: Text(
+                            errorMessage!,
+                            style: const TextStyle(color: Colors.red),
                           ),
                         )
                       : filteredTasks.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No tasks found',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white60,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                          itemCount:
-                              filteredTasks.length + (isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == filteredTasks.length) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
+                          ? const Center(
+                              child: Text(
+                                "No tasks found",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                ...filteredTasks.map((task) => Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 14),
+                                      child: _buildTaskCard(task),
+                                    )),
+                                if (isLoadingMore)
+                                  const Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: CircularProgressIndicator(),
                                   ),
-                                ),
-                              );
-                            }
-                            final task = filteredTasks[index];
-                            return _buildTaskCard(task);
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                              ],
+                            ),
 
-  Widget _buildFilterChip(String filter, String label) {
-    final bool isSelected = selectedFilter == filter;
-    return GestureDetector(
-      onTap: () {
-        if (selectedFilter != filter) {
-          setState(() {
-            selectedFilter = filter;
-            hasMore = true;
-            tasks.clear(); // clear old tasks
-          });
-          fetchTasks();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.white.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white.withOpacity(0.4)
-                : Colors.white.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withOpacity(isSelected ? 1.0 : 0.8),
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              const SizedBox(height: 100), // Bottom padding
+            ],
           ),
         ),
       ),
     );
   }
 
+  // ──────────────────────────────────────────────
+  // UI Widgets (exact copy from your design)
+  // ──────────────────────────────────────────────
+
+
+Widget _tabButton(String title, bool active) {
+  return GestureDetector(
+    onTap: () {
+      String newFilter;
+      switch (title) {
+        case "All Tasks": newFilter = 'all'; break;
+        case "Completed": newFilter = 'succeeded'; break;
+        case "Pending": newFilter = 'pending'; break;
+        case "In Progress": newFilter = 'approval-pending'; break;
+        case "Failed": newFilter = 'failed'; break;
+        default: newFilter = 'all';
+      }
+      if (selectedFilter != newFilter) {
+        setState(() {
+          selectedFilter = newFilter;
+          tasks.clear();
+          currentPage = 1;
+          hasMore = true;
+        });
+        fetchTasks();
+      }
+    },
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: active ? AppColors.primary.withOpacity(0.12) : AppColors.whiteClr,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: active ? AppColors.primary : AppColors.borderColor,
+          width: active ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          color: active ? AppColors.primary : AppColors.balckClr,
+          fontWeight: active ? FontWeight.bold : FontWeight.w500,
+        ),
+      ),
+    ),
+  );
+}
   Widget _buildTaskCard(TaskDetail task) {
-    // Determine status color and icon
-    Color statusColor;
-    String statusLabel;
-    IconData statusIcon;
+    Color tagColor;
+    String statusText;
 
     switch (task.status.toLowerCase()) {
       case 'succeeded':
-        statusColor = const Color(0xFF10B981);
-        statusLabel = 'Completed';
-        statusIcon = LucideIcons.checkCircle2;
+        tagColor = Colors.green;
+        statusText = "Completed";
         break;
       case 'failed':
-        statusColor = const Color(0xFFEF4444);
-        statusLabel = 'Failed';
-        statusIcon = LucideIcons.xCircle;
+        tagColor = Colors.red;
+        statusText = "Failed";
         break;
-      case 'approval_pending':
-        statusColor = const Color(0xFF3B82F6);
-        statusLabel = 'In Progress';
-        statusIcon = LucideIcons.clock;
+      case 'approval-pending':
+        tagColor = Colors.blue;
+        statusText = "In Progress";
         break;
       default:
-        statusColor = const Color(0xFFF59E0B);
-        statusLabel = 'Pending';
-        statusIcon = LucideIcons.clock;
+        tagColor = Colors.orange;
+        statusText = "Pending";
     }
 
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         context.push('/tasks/${task.id}', extra: {'query': task.query});
       },
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E3A5F).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          color: AppColors.whiteClr,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderColor),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: Offset(0, 6)),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status badge with checkbox
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: statusColor.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(statusIcon, size: 12, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Checkbox
+                _tagWidget("Task", color: AppColors.primary),
+                const SizedBox(width: 10),
+                _statusTagWidget(statusText, tagColor),
               ],
             ),
             const SizedBox(height: 12),
-
-            // Task title
             Text(
-              task.query.isNotEmpty ? task.query : 'No query provided',
+              task.query.isNotEmpty ? task.query : "No query provided",
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
-                height: 1.3,
+                color: Colors.black87,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-
-            const SizedBox(height: 12),
-
-            // Footer with timestamp and priority badge
+            
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.clock,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      task.timestamp,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
+                const Icon(Icons.calendar_today_outlined,
+                    size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                const Text("Created at", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(width: 6),
+                Text(
+                  task.timestamp,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500),
                 ),
-                // Priority badge (optional - can be conditional)
-                if (task.status.toLowerCase() == 'approval_pending')
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: const Color(0xFFF59E0B).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.star,
-                          size: 10,
-                          color: const Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Priority',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFFF59E0B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _tagWidget(String text,
+      {Color bg = AppColors.secondary, Color color = AppColors.primary}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  Widget _statusTagWidget(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

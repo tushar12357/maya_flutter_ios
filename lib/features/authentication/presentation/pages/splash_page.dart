@@ -86,7 +86,7 @@ class SplashPage extends StatelessWidget {
                           width: 50,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.blue,
+                            color: Colors.orange,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black26,
@@ -168,7 +168,7 @@ class __BouncingDotsState extends State<_BouncingDots>
               height: 10,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blue,
+                color: Colors.orange,
               ),
             ),
           ),
