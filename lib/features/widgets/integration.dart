@@ -9,6 +9,7 @@ class Integration {
   bool connected;
   final String category;
   final List<String> scopes;
+  final String imagePath;
 
   Integration({
     required this.id,
@@ -19,5 +20,6 @@ class Integration {
     required this.connected,
     required this.category,
     required this.scopes,
+    required this.imagePath,
   });
 }

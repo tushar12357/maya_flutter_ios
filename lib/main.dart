@@ -12,6 +12,7 @@ import 'injection_container.dart' as di;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tanstack_query/flutter_tanstack_query.dart';
 import 'core/network/query_client.dart'; // ← your file above
+import 'package:firebase_app_check/firebase_app_check.dart';
 // Background handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -26,8 +27,15 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await FirebaseAppCheck.instance.activate(
+  appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+);
+
+
+
 
   final FirebaseMessaging messaging = FirebaseMessaging.instance;
+
 
   NotificationSettings settings = await messaging.requestPermission(
     alert: true,
