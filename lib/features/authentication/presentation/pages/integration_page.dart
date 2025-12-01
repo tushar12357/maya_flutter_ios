@@ -204,123 +204,87 @@ class _IntegrationsPageState extends State<IntegrationsPage>
 
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.6),
-      builder: (context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Dialog(
-            backgroundColor: Colors.white.withOpacity(0.15),
-            elevation: 0,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: BorderSide(color: Colors.white.withOpacity(0.2)),
+      builder: (BuildContext context) {
+     return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          backgroundColor: Colors.white70,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black26, width: 1.4),
             ),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Connect Fireflies",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Connect Fireflies",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black26),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: TextField(
+                    controller: keyController,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: "Enter value...",
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Paste your Fireflies API key below to enable transcription.",
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: () async {
+                    final newValue = keyController.text.trim();
+                    if (newValue.isEmpty) return;
 
-                  // Input Box
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    Navigator.of(context).pop();
+
+                    final names = newValue.split(' ');
+                    final res = await getIt<ApiClient>().updateUserProfile(
+                      firstName: names.first,
+                      lastName: names.length > 1 ? names.sublist(1).join(' ') : '',
+                    );
+
+                    if (res['statusCode'] == 200) {
+                      setState(() => integrations.firstWhere((i) => i.id == 'fireflies').connected = true);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Fireflies connected successfully')),
+                      );
+                      _loadIntegrationStatus();
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 40,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white.withOpacity(0.08),
-                      border: Border.all(color: Colors.white.withOpacity(0.15)),
-                    ),
-                    child: TextField(
-                      controller: keyController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: "Enter API Key",
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
+                      borderRadius: BorderRadius.circular(30),
+                      gradient: const LinearGradient(
+                        colors: [AppColors.secondary, AppColors.primary],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "Save",
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
                   ),
-
-                  const SizedBox(height: 18),
-
-                  // Buttons Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          "Cancel",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () async {
-                          final apiKey = keyController.text.trim();
-                          if (apiKey.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("API Key cannot be empty"),
-                              ),
-                            );
-                            return;
-                          }
-
-                          Navigator.pop(context);
-                          await _saveFirefliesKey(apiKey);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                            ),
-                          ),
-                          child: const Text(
-                            "Save",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       },
     );
+  
+  
   }
 
   Future<void> _saveFirefliesKey(String apiKey) async {
@@ -678,7 +642,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
       if (integration.id == 'google-calendar') {
         await _handleGoogleSignIn(integration);
       } else if (integration.id == 'gohighlevel') {
-        _openOAuthWebView(longUrl, integration.name);
+        _launchURL(longUrl);
       } else if (integration.id == 'fireflies') {
         _showFirefliesKeyPopup();
       } else if (integration.id == 'asana') {
@@ -863,7 +827,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
         final url = _extractIntegrationUrl(result['data']);
 
         if (url != null) {
-          _openOAuthWebView(url, integrationName);
+          _launchURL(url);
           return;
         }
       }
