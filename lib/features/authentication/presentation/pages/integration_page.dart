@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/network/api_client.dart';
+import 'package:Maya/utils/webview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +20,7 @@ class IntegrationsPage extends StatefulWidget {
 
 Future<void> _launchURL(String url) async {
   try {
-    final Uri uri = Uri.parse(url);  // <-- Remove Uri.encodeFull(url)
+    final Uri uri = Uri.parse(url); // <-- Remove Uri.encodeFull(url)
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -27,14 +28,16 @@ Future<void> _launchURL(String url) async {
     }
   } catch (e) {
     print('Error launching URL: $e');
-    
   }
 }
 
-class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBindingObserver  {
+class _IntegrationsPageState extends State<IntegrationsPage>
+    with WidgetsBindingObserver {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   GoogleSignInAccount? _currentUser;
   bool _isInitializing = false;
+  String longUrl =
+      'https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fmaya.ravan.ai%2Fapi%2Fcrm%2Fleadconnector%2Fcode&client_id=68755e91a1a7f90cd15877d5-me8gas4x&scope=socialplanner%2Fpost.readonly+saas%2Flocation.write+socialplanner%2Foauth.readonly+saas%2Flocation.read+socialplanner%2Foauth.write+conversations%2Freports.readonly+calendars%2Fresources.write+campaigns.readonly+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+calendars%2Fgroups.readonly+calendars%2Fgroups.write+calendars%2Fresources.readonly+calendars%2Fevents.write+calendars%2Fevents.readonly+calendars.write+calendars.readonly+businesses.write+businesses.readonly+conversations%2Flivechat.write+contacts.readonly+contacts.write+objects%2Fschema.readonly+objects%2Fschema.write+objects%2Frecord.readonly+objects%2Frecord.write+associations.write+associations.readonly+associations%2Frelation.readonly+associations%2Frelation.write+courses.write+courses.readonly+forms.readonly+forms.write+invoices.readonly+invoices.write+invoices%2Fschedule.readonly+invoices%2Fschedule.write+invoices%2Ftemplate.readonly+invoices%2Ftemplate.write+invoices%2Festimate.readonly+invoices%2Festimate.write+links.readonly+lc-email.readonly+links.write+locations%2FcustomValues.readonly+medias.write+medias.readonly+locations%2Ftemplates.readonly+locations%2Ftags.write+funnels%2Fredirect.readonly+funnels%2Fpage.readonly+funnels%2Ffunnel.readonly+oauth.write+oauth.readonly+opportunities.readonly+opportunities.write+socialplanner%2Fpost.write+socialplanner%2Faccount.readonly+socialplanner%2Faccount.write+socialplanner%2Fcsv.readonly+socialplanner%2Fcsv.write+socialplanner%2Fcategory.readonly+socialplanner%2Ftag.readonly+store%2Fshipping.readonly+socialplanner%2Fstatistics.readonly+store%2Fshipping.write+store%2Fsetting.readonly+surveys.readonly+store%2Fsetting.write+workflows.readonly+emails%2Fschedule.readonly+emails%2Fbuilder.write+emails%2Fbuilder.readonly+wordpress.site.readonly+blogs%2Fpost.write+blogs%2Fpost-update.write+blogs%2Fcheck-slug.readonly+blogs%2Fcategory.readonly+blogs%2Fauthor.readonly+socialplanner%2Fcategory.write+socialplanner%2Ftag.write+blogs%2Fposts.readonly+blogs%2Flist.readonly+charges.readonly+charges.write+marketplace-installer-details.readonly+twilioaccount.read+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2FsendLink.write+documents_contracts_template%2Flist.readonly+products%2Fcollection.write+products%2Fcollection.readonly+products%2Fprices.write+products%2Fprices.readonly+products.write+products.readonly+payments%2Fcustom-provider.write+payments%2Fcoupons.write+payments%2Fcustom-provider.readonly+payments%2Fcoupons.readonly+payments%2Fsubscriptions.readonly+payments%2Ftransactions.readonly+payments%2Fintegration.write+payments%2Fintegration.readonly+payments%2Forders.write+payments%2Forders.readonly+funnels%2Fredirect.write+funnels%2Fpagecount.readonly&version_id=68755e91a1a7f90cd15877d5';
 
   final _storage = const FlutterSecureStorage();
   late int _currentUserId;
@@ -59,7 +62,6 @@ class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBinding
         "https://www.googleapis.com/auth/gmail.send",
       ],
       imagePath: 'assets/google_calendar.png',
-
     ),
     Integration(
       id: 'gohighlevel',
@@ -122,25 +124,24 @@ class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBinding
   void initState() {
     super.initState();
     _initializeGoogleSignIn();
-  WidgetsBinding.instance.addObserver(this);   // <-- add this
+    WidgetsBinding.instance.addObserver(this); // <-- add this
 
     _loadCurrentUser();
     _loadIntegrationStatus();
   }
 
- @override
-void didChangeAppLifecycleState(AppLifecycleState state) {
-  if (state == AppLifecycleState.resumed) {
-    _loadIntegrationStatus();  // <-- hits only when user RETURNS to app
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadIntegrationStatus(); // <-- hits only when user RETURNS to app
+    }
   }
-}
 
-@override
-void dispose() {
-  WidgetsBinding.instance.removeObserver(this);
-  super.dispose();
-}
-
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   Future<void> _loadIntegrationStatus() async {
     try {
@@ -645,37 +646,39 @@ void dispose() {
     }
   }
 
-
-
-    Future<void> _disconnectIntegrationApi(String provider) async {
+  Future<void> _disconnectIntegrationApi(String provider) async {
     try {
-      final result =
-          await getIt<ApiClient>().disconnectIntegration(provider: provider);
+      final result = await getIt<ApiClient>().disconnectIntegration(
+        provider: provider,
+      );
       if (result['statusCode'] == 200) {
         // server-side disconnect successful; clear local tokens
         await _resetConnection(provider);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['data']['message'] ?? 'Disconnect failed')),
+          SnackBar(
+            content: Text(result['data']['message'] ?? 'Disconnect failed'),
+          ),
         );
       }
     } catch (e) {
       debugPrint('Disconnect error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Disconnect failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Disconnect failed: $e')));
     }
   }
 
-
-   Future<void> _onToggleIntegration(Integration integration, bool newValue) async {
+  Future<void> _onToggleIntegration(
+    Integration integration,
+    bool newValue,
+  ) async {
     if (newValue) {
       // Turn ON -> call existing connect flow (Reconnect = A)
       if (integration.id == 'google-calendar') {
         await _handleGoogleSignIn(integration);
       } else if (integration.id == 'gohighlevel') {
-        await _launchURL(
-            'https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fmaya.ravan.ai%2Fapi%2Fcrm%2Fleadconnector%2Fcode&client_id=68755e91a1a7f90cd15877d5-me8gas4x&scope=socialplanner%2Fpost.readonly+saas%2Flocation.write+socialplanner%2Foauth.readonly+saas%2Flocation.read+socialplanner%2Foauth.write+conversations%2Freports.readonly+calendars%2Fresources.write+campaigns.readonly+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+calendars%2Fgroups.readonly+calendars%2Fgroups.write+calendars%2Fresources.readonly+calendars%2Fevents.write+calendars%2Fevents.readonly+calendars.write+calendars.readonly+businesses.write+businesses.readonly+conversations%2Flivechat.write+contacts.readonly+contacts.write+objects%2Fschema.readonly+objects%2Fschema.write+objects%2Frecord.readonly+objects%2Frecord.write+associations.write+associations.readonly+associations%2Frelation.readonly+associations%2Frelation.write+courses.write+courses.readonly+forms.readonly+forms.write+invoices.readonly+invoices.write+invoices%2Fschedule.readonly+invoices%2Fschedule.write+invoices%2Ftemplate.readonly+invoices%2Ftemplate.write+invoices%2Festimate.readonly+invoices%2Festimate.write+links.readonly+lc-email.readonly+links.write+locations%2FcustomValues.readonly+medias.write+medias.readonly+locations%2Ftemplates.readonly+locations%2Ftags.write+funnels%2Fredirect.readonly+funnels%2Fpage.readonly+funnels%2Ffunnel.readonly+oauth.write+oauth.readonly+opportunities.readonly+opportunities.write+socialplanner%2Fpost.write+socialplanner%2Faccount.readonly+socialplanner%2Faccount.write+socialplanner%2Fcsv.readonly+socialplanner%2Fcsv.write+socialplanner%2Fcategory.readonly+socialplanner%2Ftag.readonly+store%2Fshipping.readonly+socialplanner%2Fstatistics.readonly+store%2Fshipping.write+store%2Fsetting.readonly+surveys.readonly+store%2Fsetting.write+workflows.readonly+emails%2Fschedule.readonly+emails%2Fbuilder.write+emails%2Fbuilder.readonly+wordpress.site.readonly+blogs%2Fpost.write+blogs%2Fpost-update.write+blogs%2Fcheck-slug.readonly+blogs%2Fcategory.readonly+blogs%2Fauthor.readonly+socialplanner%2Fcategory.write+socialplanner%2Ftag.write+blogs%2Fposts.readonly+blogs%2Flist.readonly+charges.readonly+charges.write+marketplace-installer-details.readonly+twilioaccount.read+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2FsendLink.write+documents_contracts_template%2Flist.readonly+products%2Fcollection.write+products%2Fcollection.readonly+products%2Fprices.write+products%2Fprices.readonly+products.write+products.readonly+payments%2Fcustom-provider.write+payments%2Fcoupons.write+payments%2Fcustom-provider.readonly+payments%2Fcoupons.readonly+payments%2Fsubscriptions.readonly+payments%2Ftransactions.readonly+payments%2Fintegration.write+payments%2Fintegration.readonly+payments%2Forders.write+payments%2Forders.readonly+funnels%2Fredirect.write+funnels%2Fpagecount.readonly&version_id=68755e91a1a7f90cd15877d5'); // keep your long URL
+        _openOAuthWebView(longUrl, integration.name);
       } else if (integration.id == 'fireflies') {
         _showFirefliesKeyPopup();
       } else if (integration.id == 'asana') {
@@ -691,24 +694,21 @@ void dispose() {
     }
   }
 
-
   List<dynamic> _extractAsanaWorkspaces(Map<String, dynamic> raw) {
-  if (raw['data'] is List) {
-    // Case 1: "data": [ ... ]
-    return raw['data'];
+    if (raw['data'] is List) {
+      // Case 1: "data": [ ... ]
+      return raw['data'];
+    }
+
+    if (raw['data'] is Map && raw['data']['data'] is List) {
+      // Case 2: "data": { "data": [ ... ] }
+      return raw['data']['data'];
+    }
+
+    return [];
   }
 
-  if (raw['data'] is Map && raw['data']['data'] is List) {
-    // Case 2: "data": { "data": [ ... ] }
-    return raw['data']['data'];
-  }
-
-  return [];
-}
-
-
-
-void _openManageSheet(Integration integration) {
+  void _openManageSheet(Integration integration) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -718,13 +718,16 @@ void _openManageSheet(Integration integration) {
       ),
       builder: (BuildContext context) {
         return Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Wrap(
             children: [
               ListTile(
-                title: Text('Manage ${integration.name}',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  'Manage ${integration.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(),
@@ -740,53 +743,59 @@ void _openManageSheet(Integration integration) {
                   await _onToggleIntegration(integration, true);
                 },
               ),
-if (integration.id == 'asana')
-  FutureBuilder<Map<String, dynamic>>(
-    future: getIt<ApiClient>().getAsanaWorkspace(userId: _currentUserId),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return const Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        );
-      }
+              if (integration.id == 'asana')
+                FutureBuilder<Map<String, dynamic>>(
+                  future: getIt<ApiClient>().getAsanaWorkspace(
+                    userId: _currentUserId,
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      );
+                    }
 
-      final raw = snapshot.data!;
-      final workspaces = _extractAsanaWorkspaces(raw);
+                    final raw = snapshot.data!;
+                    final workspaces = _extractAsanaWorkspaces(raw);
 
-      if (workspaces.isEmpty) {
-        return const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No workspaces found'),
-        );
-      }
+                    if (workspaces.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('No workspaces found'),
+                      );
+                    }
 
-      return ExpansionTile(
-        leading: const Icon(Icons.workspaces_filled),
-        title: const Text('Workspace'),
-        children: workspaces.map((ws) {
-          return ListTile(
-            title: Text(ws['name']),
-            onTap: () async {
-              await getIt<ApiClient>().setAsanaWorkspace(
-                userId: _currentUserId,
-                workspaceId: ws['gid'],
-              );
+                    return ExpansionTile(
+                      leading: const Icon(Icons.workspaces_filled),
+                      title: const Text('Workspace'),
+                      children: workspaces.map((ws) {
+                        return ListTile(
+                          title: Text(ws['name']),
+                          onTap: () async {
+                            await getIt<ApiClient>().setAsanaWorkspace(
+                              userId: _currentUserId,
+                              workspaceId: ws['gid'],
+                            );
 
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Workspace set: ${ws['name']}')),
-              );
-            },
-          );
-        }).toList(),
-      );
-    },
-  ),
-   const SizedBox(height: 12),
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Workspace set: ${ws['name']}'),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              const SizedBox(height: 12),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12,
+                ),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(44),
@@ -804,6 +813,23 @@ if (integration.id == 'asana')
     );
   }
 
+  void _openOAuthWebView(String url, String integrationName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OAuthWebView(
+          url: url,
+          integrationName: integrationName,
+          onComplete: (success) {
+            if (success) {
+              // refresh status from API
+              _loadIntegrationStatus();
+            }
+          },
+        ),
+      ),
+    );
+  }
 
   Future<void> _handleAsanaSignIn(Integration integration) async {
     await _launchIntegrationUrl(
@@ -832,24 +858,22 @@ if (integration.id == 'asana')
   }) async {
     try {
       final result = await requester();
-      print("result: ${result['data']}");
+
       if (result['statusCode'] == 200) {
         final url = _extractIntegrationUrl(result['data']);
+
         if (url != null) {
-          await _launchURL(url);
+          _openOAuthWebView(url, integrationName);
           return;
         }
       }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to open $integrationName connection.'),
-        ),
+        SnackBar(content: Text('Unable to open $integrationName connection.')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error launching $integrationName: $e'),
-        ),
+        SnackBar(content: Text('Error launching $integrationName: $e')),
       );
     }
   }
@@ -871,127 +895,119 @@ if (integration.id == 'asana')
     return null;
   }
 
+  Widget _buildIntegrationTile(Integration integration) {
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ------ MAIN ROW (icon, text, switch)
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: integration.iconColor.withOpacity(0.12),
+                  ),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.grey.shade200,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        integration.imagePath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.broken_image, color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        integration.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        integration.description,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        integration.connected ? 'Connected' : 'Not Connected',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: integration.connected
+                              ? Colors.green
+                              : Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-Widget _buildIntegrationTile(Integration integration) {
-  return Card(
-    elevation: 0.5,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ------ MAIN ROW (icon, text, switch)
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
+                Switch(
+                  value: integration.connected,
+                  onChanged: (value) async {
+                    await _onToggleIntegration(integration, value);
+                    setState(() {
+                      integration.connected = value;
+                    });
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // ------ MANAGE BUTTON (inside the card, full white background)
+            InkWell(
+              onTap: () => _openManageSheet(integration),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: integration.iconColor.withOpacity(0.12),
                 ),
-                child: Container(
-  width: 44,
-  height: 44,
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(8),
-    color: Colors.grey.shade200,
-  ),
-  child: ClipRRect(
-    borderRadius: BorderRadius.circular(8),
-    child: Image.asset(
-      integration.imagePath,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) =>
-          const Icon(Icons.broken_image, color: Colors.red),
-    ),
-  ),
-),
-
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      integration.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      integration.description,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      integration.connected ? 'Connected' : 'Not Connected',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: integration.connected
-                            ? Colors.green
-                            : Colors.red,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.settings, size: 18, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Manage', style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
-
-              Switch(
-                value: integration.connected,
-                onChanged: (value) async {
-                  await _onToggleIntegration(integration, value);
-                  setState(() {
-                    integration.connected = value;
-                  });
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // ------ MANAGE BUTTON (inside the card, full white background)
-          InkWell(
-            onTap: () => _openManageSheet(integration),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.settings, size: 18, color: Colors.grey),
-                  SizedBox(width: 8),
-                  Text(
-                    'Manage',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgColor,
@@ -1014,10 +1030,7 @@ Widget _buildIntegrationTile(Integration integration) {
             ),
             Text(
               'Connected apps and services',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ],
         ),
@@ -1030,24 +1043,23 @@ Widget _buildIntegrationTile(Integration integration) {
       body: _isInitializing
           ? const Center(child: CircularProgressIndicator())
           : _isLoadingStatus
-              ? ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: integrations.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, __) => const _SkeletonCard(),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: integrations.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final integration = integrations[index];
-                    return _buildIntegrationTile(integration);
-                  },
-                ),
+          ? ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: integrations.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, __) => const _SkeletonCard(),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: integrations.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final integration = integrations[index];
+                return _buildIntegrationTile(integration);
+              },
+            ),
     );
   }
-
 }
 
 // New clean card exactly matching the design you provided
@@ -1071,9 +1083,7 @@ class IntegrationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -1106,10 +1116,7 @@ class IntegrationCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1156,11 +1163,7 @@ class _SkeletonCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    height: 16,
-                    width: 140,
-                    color: Colors.grey[300],
-                  ),
+                  Container(height: 16, width: 140, color: Colors.grey[300]),
                   const SizedBox(height: 8),
                   Container(
                     height: 14,
@@ -1168,11 +1171,7 @@ class _SkeletonCard extends StatelessWidget {
                     color: Colors.grey[300],
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    height: 12,
-                    width: 80,
-                    color: Colors.grey[300],
-                  ),
+                  Container(height: 12, width: 80, color: Colors.grey[300]),
                 ],
               ),
             ),

@@ -729,7 +729,7 @@ else
                     else
                       ...todos.take(3).map((todo) => _buildTodoCard(todo)),
 
-                    const SizedBox(height: 50),
+                    const SizedBox(height: 120),
                   ],
                 ),
               ),

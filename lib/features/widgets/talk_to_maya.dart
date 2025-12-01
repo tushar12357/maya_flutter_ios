@@ -270,20 +270,23 @@ void _onStatusChange() {
 }
 
 
-void _updateWakelock() {
-  final isActiveSession = _session?.status != null &&
-      _session!.status != UltravoxSessionStatus.disconnected &&
-      _session!.status != UltravoxSessionStatus.disconnecting;
+void _updateWakelock() async {
+    final bool isActive = _shared.isSessionActive;
 
-  if (isActiveSession) {
-    WakelockPlus.enable();
-    print('WAKELOCK: ENABLED');
-  } else {
-    WakelockPlus.disable();
-    print('WAKELOCK: DISABLED');
-  }
-}
-  // ===================================================================
+    try {
+      final bool currentlyEnabled = await WakelockPlus.enabled;
+
+      if (isActive && !currentlyEnabled) {
+        await WakelockPlus.enable();
+        print('WAKELOCK: ENABLED (screen will stay on)');
+      } else if (!isActive && currentlyEnabled) {
+        await WakelockPlus.disable();
+        print('WAKELOCK: DISABLED');
+      }
+    } catch (e) {
+      print("Wakelock error: $e");
+    }
+  } // ===================================================================
   // Data Message: Transcripts
   // ===================================================================
 void _onDataMessage() {
@@ -740,7 +743,7 @@ Widget build(BuildContext context) {
 
           // Text Input + Send Button
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 52),
             child: Row(
               children: [
                 Expanded(
