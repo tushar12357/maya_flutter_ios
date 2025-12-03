@@ -735,7 +735,17 @@ class _IntegrationsPageState extends State<IntegrationsPage>
                       title: const Text('Workspace'),
                       children: workspaces.map((ws) {
                         return ListTile(
-                          title: Text(ws['name']),
+                          leading: ws['selected'] == true
+      ? const Icon(Icons.check_circle, color: Colors.green)
+      : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
+
+                          title: Text(
+    ws['name'],
+    style: TextStyle(
+      fontWeight: ws['selected'] == true ? FontWeight.bold : FontWeight.normal,
+      color: ws['selected'] == true ? Colors.green : Colors.black87,
+    ),
+  ),
                           onTap: () async {
                             await getIt<ApiClient>().setAsanaWorkspace(
                               userId: _currentUserId,

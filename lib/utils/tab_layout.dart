@@ -92,7 +92,6 @@ class _TabLayoutState extends State<TabLayout> {
             color: isSelected ? Colors.white : AppColors.balckClr.withOpacity(0.6),
           ),
         ),
-        const SizedBox(height: 6),
         Text(
           isSelected ? label : '',
           style: TextStyle(

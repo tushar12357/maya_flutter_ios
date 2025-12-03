@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tanstack_query/flutter_tanstack_query.dart';
 import 'core/network/query_client.dart'; // ← your file above
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 // Background handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -133,7 +135,9 @@ class _MyAppState extends State<MyApp> {
       value: _authBloc,
       child: MaterialApp.router(
         title: 'Maya App',
-        theme: AppTheme.lightTheme,
+        theme: ThemeData(
+  textTheme: GoogleFonts.poppinsTextTheme(),
+),
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),
