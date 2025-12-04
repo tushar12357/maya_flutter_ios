@@ -82,9 +82,7 @@ class _GenerationsPageState extends State<GenerationsPage> {
               return const Center(child: Text("Failed to load generations"));
             }
 
-            final generations = (snapshot.data!['data']['data'] as List<dynamic>)
-                .where((g) => g['status'] == 'approval_pending')
-                .toList();
+final generations = (snapshot.data!['data']['data'] as List<dynamic>);
 
             if (generations.isEmpty) {
               return const Center(
@@ -108,17 +106,23 @@ class _GenerationsPageState extends State<GenerationsPage> {
                   children: [
                     _titleRow(title, date),
                     const SizedBox(height: 16),
+                    _statusBadge(g['status']),
+const SizedBox(height: 16),
+
                     if (audioUrl != null && audioUrl.isNotEmpty)
                       _audioCard(audioUrl),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _actionBtn("Approve", Colors.green.shade50, Colors.green, () => _updateStatus(id, 'approve')),
-                        _actionBtn("Reject", Colors.red.shade50, Colors.red, () => _updateStatus(id, 'reject')),
-                        _actionBtn("Regenerate", Colors.purple.shade50, Colors.purple, () => _updateStatus(id, 'regenerate')),
-                      ],
-                    ),
+                    if (g['status'] == 'approval_pending') ...[
+  Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    children: [
+      _actionBtn("Approve", Colors.green.shade50, Colors.green, () => _updateStatus(id, 'approve')),
+      _actionBtn("Reject", Colors.red.shade50, Colors.red, () => _updateStatus(id, 'reject')),
+      _actionBtn("Regenerate", Colors.purple.shade50, Colors.purple, () => _updateStatus(id, 'regenerate')),
+    ],
+  ),
+],
+
                   ],
                 );
               },
@@ -135,6 +139,7 @@ class _GenerationsPageState extends State<GenerationsPage> {
       children: [
         Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
+        
         Row(
           children: [
             const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
@@ -163,6 +168,42 @@ class _GenerationsPageState extends State<GenerationsPage> {
       ),
     );
   }
+
+  Widget _statusBadge(String status) {
+  Color bg;
+  Color text;
+
+  switch (status) {
+    case 'approved':
+      bg = Colors.green.shade50;
+      text = Colors.green;
+      break;
+    case 'rejected':
+      bg = Colors.red.shade50;
+      text = Colors.red;
+      break;
+    default: // approval_pending, regenerate, etc.
+      bg = Colors.orange.shade50;
+      text = Colors.orange;
+  }
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      status.toUpperCase(),
+      style: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: text,
+        fontSize: 11,
+      ),
+    ),
+  );
+}
+
 
   // EXACT SAME AUDIO CARD FROM YOUR VoiceUIExample (now with real audio)
   Widget _audioCard(String url) {

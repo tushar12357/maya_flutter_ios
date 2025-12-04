@@ -49,12 +49,8 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
 runApp(
-       QueryClientProvider(  // ← Important!
-        client: QueryClient(
-  cache: QueryCache.instance,
-  networkPolicy: NetworkPolicy.instance,),
-        child: const MyApp(),
-      ),
+       
+        const MyApp(),
   );}
 
 class MyApp extends StatefulWidget {

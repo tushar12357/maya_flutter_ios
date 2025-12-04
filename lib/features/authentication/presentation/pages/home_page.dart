@@ -510,6 +510,15 @@ final userCountry = _getUserCountry();
     }
   }
 
+  // Pull-to-refresh method
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      fetchReminders(),
+      fetchToDos(),
+      fetchTasks(),
+    ]);
+  }
+
   // -----------------------------------------------------------------------
   // To-Do CRUD helpers
   // -----------------------------------------------------------------------
@@ -635,9 +644,12 @@ static const double navBarMarginBottom = 12.0;
           backgroundColor: AppColors.bgColor,
           body: Stack(
             children: [
-              SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
+              RefreshIndicator(
+                onRefresh: _onRefresh,
+                color: AppColors.primary,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 50),
@@ -732,6 +744,7 @@ else
                     const SizedBox(height: 120),
                   ],
                 ),
+              ),
               ),
 
               // ORANGE-THEMED BOTTOM BAR

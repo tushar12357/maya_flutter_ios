@@ -101,6 +101,10 @@ class _TasksPageState extends State<TasksPage> {
         return 'approval-pending';
       case 'scheduled':
         return 'scheduled';
+      case 'approved':
+        return 'approved';
+      case 'rejected':
+        return 'rejected';
       case 'all':
       default:
         return null;
@@ -170,6 +174,16 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
+  // Pull-to-refresh method
+  Future<void> _onRefresh() async {
+    setState(() {
+      tasks.clear();
+      currentPage = 1;
+      hasMore = true;
+    });
+    await fetchTasks(page: 1);
+  }
+
   String _getFilterStatus(String status) {
     final lower = status.toLowerCase();
     if (lower == 'succeeded') return 'succeeded';
@@ -177,6 +191,8 @@ class _TasksPageState extends State<TasksPage> {
     if (lower == 'pending') return 'pending';
     if (lower == 'approval-pending') return 'approval-pending';
     if (lower == 'scheduled') return 'scheduled';
+    if(lower=='approved') return 'approved';
+    if(lower=='rejected') return 'rejected';
     return 'pending';
   }
 
@@ -193,9 +209,13 @@ class _TasksPageState extends State<TasksPage> {
     return Scaffold(
       backgroundColor: AppColors.bgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
@@ -226,6 +246,12 @@ class _TasksPageState extends State<TasksPage> {
                     _tabButton("In Progress", selectedFilter == 'approval-pending'),
                     const SizedBox(width: 10),
                     _tabButton("Failed", selectedFilter == 'failed'),
+                    const SizedBox(width: 10),
+                    _tabButton("Approved", selectedFilter == 'approved'),
+                    const SizedBox(width: 10),
+                    _tabButton("Rejected", selectedFilter == 'rejected'),
+                    const SizedBox(width: 10),
+                    _tabButton("Scheduled", selectedFilter == 'scheduled'),
                   ],
                 ),
               ),
@@ -274,6 +300,7 @@ class _TasksPageState extends State<TasksPage> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -293,6 +320,10 @@ Widget _tabButton(String title, bool active) {
         case "Pending": newFilter = 'pending'; break;
         case "In Progress": newFilter = 'approval-pending'; break;
         case "Failed": newFilter = 'failed'; break;
+        case "Approved": newFilter = 'approved'; break;
+        case "Rejected": newFilter = 'rejected'; break;
+        case "Scheduled": newFilter = 'scheduled'; break;
+
         default: newFilter = 'all';
       }
       if (selectedFilter != newFilter) {
@@ -342,6 +373,22 @@ Widget _tabButton(String title, bool active) {
       case 'approval-pending':
         tagColor = Colors.blue;
         statusText = "In Progress";
+        break;
+      case 'approved':
+        tagColor = Colors.green;
+        statusText = "Approved";
+        break;
+      case 'rejected':
+        tagColor = Colors.red;
+        statusText = "Rejected";
+        break;
+      case 'scheduled':
+        tagColor = Colors.blue;
+        statusText = "Scheduled";
+        break;
+      case 'pending':
+        tagColor = Colors.orange;
+        statusText = "Pending";
         break;
       default:
         tagColor = Colors.orange;

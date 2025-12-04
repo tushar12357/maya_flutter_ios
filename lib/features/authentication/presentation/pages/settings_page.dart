@@ -350,6 +350,14 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // Pull-to-refresh method
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      _fetchInitialAudioSettings(),
+      _fetchNotificationPreferences(),
+    ]);
+  }
+
   Future<void> _setVolume(double v) async =>
       _debouncedApi(() => _apiClient.setVolume(v.round()), 'Volume');
   Future<void> _setMicVolume(double v) async =>
@@ -465,56 +473,126 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
          Container(color: AppColors.bgColor), // Light greyish-white background
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Doll Setup',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.balckClr,
+            child: RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Doll Setup',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.balckClr,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildPowerSection(),
-                  const SizedBox(height: 16),
-                  _buildConnectivitySection(),
-                  const SizedBox(height: 16),
-                  _buildDeviceStatusSection(),
-                  const SizedBox(height: 16),
-                  _buildAudioControlSection(),
-                  const SizedBox(height: 16),
-                  _buildWakeWordSection(),
-                  const SizedBox(height: 16),
-                  _buildWifiSection(),
-                  const SizedBox(height: 16),
-                  _buildBluetoothSection(),
-                  const SizedBox(height: 16),
-                  _buildNotificationSection(),
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                    if (_isLoading) ...[
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 16),
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 16),
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 16),
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 16),
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 16),
+                      _buildSkeletonSection(),
+                      const SizedBox(height: 20),
+                    ] else ...[
+                      _buildPowerSection(),
+                      const SizedBox(height: 16),
+                      _buildConnectivitySection(),
+                      const SizedBox(height: 16),
+                      _buildDeviceStatusSection(),
+                      const SizedBox(height: 16),
+                      _buildAudioControlSection(),
+                      const SizedBox(height: 16),
+                      _buildWakeWordSection(),
+                      const SizedBox(height: 16),
+                      _buildWifiSection(),
+                      const SizedBox(height: 16),
+                      _buildBluetoothSection(),
+                      const SizedBox(height: 16),
+                      _buildNotificationSection(),
+                      const SizedBox(height: 20),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
           if (_showShutdownModal) _buildShutdownModal(),
           if (_showRestartModal) _buildRestartModal(),
-          if (_isLoading)
-            Container(
-              color: Colors.black.withOpacity(0.4),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
+
+  // Skeleton loading widget
+  Widget _buildSkeletonSection() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.whiteClr,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.borderColor),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title skeleton
+        Container(
+          height: 20,
+          width: 120,
+          decoration: BoxDecoration(
+            color: AppColors.borderColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Content skeleton
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 
   // ──────────────────────────────────────────────────────────────
   // UI Sections

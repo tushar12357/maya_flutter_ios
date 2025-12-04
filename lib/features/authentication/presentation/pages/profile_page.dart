@@ -32,6 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String? _avatarUrl;
   bool _isUploadingAvatar = false;
+  bool _isLoading = true;
 
   final TextEditingController _dialogController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -52,16 +53,29 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUser() async {
-    final res = await getIt<ApiClient>().getCurrentUser();
-    if (res['statusCode'] == 200) {
-      userData = res['data']['data'];
-      setState(() {
-        fullName = "${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}".trim();
-        email = userData?['email'] ?? '';
-        phone = userData?['phone_number'] ?? '';
-        _avatarUrl = userData?['profile_image_url'];
-      });
+    setState(() => _isLoading = true);
+    try {
+      final res = await getIt<ApiClient>().getCurrentUser();
+      if (res['statusCode'] == 200) {
+        userData = res['data']['data'];
+        setState(() {
+          fullName = "${userData?['first_name'] ?? ''} ${userData?['last_name'] ?? ''}".trim();
+          email = userData?['email'] ?? '';
+          phone = userData?['phone_number'] ?? '';
+          _avatarUrl = userData?['profile_image_url'];
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
     }
+  }
+
+  // Pull-to-refresh method
+  Future<void> _onRefresh() async {
+    await _loadUser();
   }
 
   Future<void> _pickAndUploadAvatar() async {
@@ -550,153 +564,283 @@ Future<void> _showChangePasswordDialog() async {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            Row(
-              children: [
-                InkWell(
-                  onTap: () => context.go('/other'),
-                  child: Container(
-                    height: 35,
-                    width: 35,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xffB2B2B2)),
-                    child: const Icon(Icons.arrow_back_outlined, color: Colors.black, size: 17),
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 40),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () => context.go('/other'),
+                    child: Container(
+                      height: 35,
+                      width: 35,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xffB2B2B2)),
+                      child: const Icon(Icons.arrow_back_outlined, color: Colors.black, size: 17),
+                    ),
+                  ),
+                  const Text(" Profile", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (_isLoading) ...[
+                _buildProfileSkeleton(),
+                const SizedBox(height: 10),
+                _buildInfoSkeleton(),
+                const SizedBox(height: 20),
+                _buildActionButtonsSkeleton(),
+              ] else ...[
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AppColors.greyColor,
+                      backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                          ? CachedNetworkImageProvider(_avatarUrl!) as ImageProvider
+                          : null,
+                      child: (_avatarUrl == null || _avatarUrl!.isEmpty)
+                          ? Text(
+                              fullName.isNotEmpty
+                                  ? fullName.trim().split(' ').first[0].toUpperCase()
+                                  : 'U',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.balckClr,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(email, style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: _isUploadingAvatar
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text(
+                                "Change Picture",
+                                style: TextStyle(fontSize: 12, color: Colors.white),
+                              ),
+                      ),
+                    ),
+                    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _isUploadingAvatar ? null : _removeProfilePicture,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade600,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, spreadRadius: 1)],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Personal Information", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      const Divider(color: Color(0xffC1BEC9)),
+                      _buildInfoRow(
+                        title: "Full Name",
+                        value: fullName,
+                        editable: true,
+                        onEdit: () => _showEditDialog("Full Name", fullName),
+                      ),
+                      const Divider(color: Color(0xffC1BEC9)),
+                      _buildInfoRow(title: "Email", value: email),
+                      const Divider(color: Color(0xffC1BEC9)),
+                      _buildInfoRow(title: "Phone", value: phone.isEmpty ? "Not set" : phone),
+                      const Divider(color: Color(0xffC1BEC9)),
+                      _buildInfoRow(title: "Location", value: location),
+                      const Divider(color: Color(0xffC1BEC9)),
+                    ],
                   ),
                 ),
-                const Text(" Profile", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InkWell(
+                      onTap: _showChangePasswordDialog,
+                      child: Text("Change Password", style: TextStyle(color: Color(0xffB2B2B2), fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                    ),
+                    InkWell(
+                      onTap: () => _deleteAccount(),
+                      child: Text("Delete Account", style: TextStyle(color: AppColors.redColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                    ),
+                  ],
+                ),
               ],
-            ),
-            const SizedBox(height: 10),
-Row(
-  children: [
-    CircleAvatar(
-      radius: 30,
-      backgroundColor: AppColors.greyColor,          // <- same background as OtherPage
-      backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-          ? CachedNetworkImageProvider(_avatarUrl!) as ImageProvider
-          : null,
-      child: (_avatarUrl == null || _avatarUrl!.isEmpty)
-          ? Text(
-              // ── Initials logic (same as in OtherPage) ──
-              fullName.isNotEmpty
-                  ? fullName.trim().split(' ').first[0].toUpperCase()
-                  : 'U',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppColors.balckClr,
-              ),
-            )
-          : null,
-    ),
-    const SizedBox(width: 15),
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(email, style: const TextStyle(color: Colors.grey)),
-        ],
-      ),
-    ),
-    // Change Picture Button
-    GestureDetector(
-      onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: _isUploadingAvatar
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-                        : const Text(
-                            "Change Picture",
-                            style: TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-      ),
-    ),
-    // Remove Picture Button (only when a picture exists)
-    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) ...[
-      const SizedBox(width: 8),
-      GestureDetector(
-        onTap: _isUploadingAvatar ? null : _removeProfilePicture,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.red.shade600,
-            borderRadius: BorderRadius.circular(20),
+              const SizedBox(height: 50),
+            ],
           ),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-      ),
-    ],
-  ],
-),  
-            const SizedBox(height: 10),
-
-       Container(
-  
-  
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, spreadRadius: 1)],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Personal Information", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  const Divider(color: Color(0xffC1BEC9)),
-                 _buildInfoRow(
-  title: "Full Name",
-  value: fullName,
-  editable: true,
-  onEdit: () => _showEditDialog("Full Name", fullName),
-),
-const Divider(color: Color(0xffC1BEC9)),
-
-_buildInfoRow(title: "Email", value: email),
-const Divider(color: Color(0xffC1BEC9)),
-
-_buildInfoRow(title: "Phone", value: phone.isEmpty ? "Not set" : phone),
-const Divider(color: Color(0xffC1BEC9)),
-
-_buildInfoRow(title: "Location", value: location),
-const Divider(color: Color(0xffC1BEC9)), ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                InkWell(
-                  onTap: _showChangePasswordDialog,
-                  child: Text("Change Password", style: TextStyle(color: Color(0xffB2B2B2), fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
-                ),
-                InkWell(
-                  onTap: () => _deleteAccount(),
-                  child: Text("Delete Account", style: TextStyle(color: AppColors.redColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 50),
-          ],
         ),
       ),
     );
   }
+
+  // Skeleton widgets
+  Widget _buildProfileSkeleton() => Row(
+    children: [
+      Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.borderColor,
+        ),
+      ),
+      const SizedBox(width: 15),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 20,
+              width: 150,
+              decoration: BoxDecoration(
+                color: AppColors.borderColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 16,
+              width: 200,
+              decoration: BoxDecoration(
+                color: AppColors.borderColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Container(
+        width: 100,
+        height: 32,
+        decoration: BoxDecoration(
+          color: AppColors.borderColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildInfoSkeleton() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, spreadRadius: 1)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 20,
+          width: 150,
+          decoration: BoxDecoration(
+            color: AppColors.borderColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Divider(color: Color(0xffC1BEC9)),
+        _buildInfoRowSkeleton(),
+        const Divider(color: Color(0xffC1BEC9)),
+        _buildInfoRowSkeleton(),
+        const Divider(color: Color(0xffC1BEC9)),
+        _buildInfoRowSkeleton(),
+        const Divider(color: Color(0xffC1BEC9)),
+        _buildInfoRowSkeleton(),
+        const Divider(color: Color(0xffC1BEC9)),
+      ],
+    ),
+  );
+
+  Widget _buildInfoRowSkeleton() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Container(
+          height: 16,
+          width: 80,
+          decoration: BoxDecoration(
+            color: AppColors.borderColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        Container(
+          height: 16,
+          width: 120,
+          decoration: BoxDecoration(
+            color: AppColors.borderColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildActionButtonsSkeleton() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Container(
+        height: 16,
+        width: 120,
+        decoration: BoxDecoration(
+          color: AppColors.borderColor,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      Container(
+        height: 16,
+        width: 120,
+        decoration: BoxDecoration(
+          color: AppColors.borderColor,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    ],
+  );
 
 
   Future<void> _removeProfilePicture() async {
