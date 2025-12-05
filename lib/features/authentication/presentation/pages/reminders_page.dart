@@ -38,26 +38,34 @@ class _RemindersPageState extends State<RemindersPage> {
     super.dispose();
   }
 
-  Future<void> _fetchRemindersForDate() async {
-    setState(() => isLoading = true);
-    try {
-      final response = await GetIt.I<ApiClient>().getReminders(
-        startDate: selectedDate,
-        endDate: selectedDate,
-      );
+Future<void> _fetchRemindersForDate() async {
+  setState(() => isLoading = true);
+  try {
+    final response = await GetIt.I<ApiClient>().getReminders(
+      startDate: selectedDate,
+      endDate: selectedDate,
+    );
 
-      if (response['success'] == true) {
-        final raw = (response['data'] as Map<String, dynamic>?)?['data'] as List<dynamic>? ?? [];
-        final fetched = raw.cast<Map<String, dynamic>>();
-        fetched.sort((a, b) => DateTime.parse(a['reminder_time']).compareTo(DateTime.parse(b['reminder_time'])));
-        setState(() => reminders = fetched);
-      }
-    } catch (e) {
-      debugPrint('Error fetching reminders: $e');
-    } finally {
-      setState(() => isLoading = false);
+    if (response['success'] == true) {
+      final raw = (response['data'] as Map<String, dynamic>?)?['data']
+              as List<dynamic>? ??
+          [];
+      final fetched = raw.cast<Map<String, dynamic>>();
+      fetched.sort((a, b) => DateTime.parse(a['reminder_time'])
+          .compareTo(DateTime.parse(b['reminder_time'])));
+      setState(() => reminders = fetched);
     }
+  } catch (e) {
+    debugPrint('Error fetching reminders: $e');
+  } finally {
+    setState(() => isLoading = false);
+
+    // after build, auto-scroll (for today)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentTime();
+    });
   }
+}
 
   DateTime _getWeekStart(DateTime d) => d.subtract(Duration(days: d.weekday % 7));
 
@@ -71,103 +79,153 @@ class _RemindersPageState extends State<RemindersPage> {
     _fetchRemindersForDate();
   }
 
-  List<Widget> _buildReminderCards() {
-    const double timelineLeft = 70.0;
-    final double availableWidth = MediaQuery.of(context).size.width - timelineLeft - 40;
+  void _scrollToCurrentTime() {
+  if (!_scrollController.hasClients) return;
 
-    final Map<int, List<_ReminderBlock>> groups = {};
-    for (var r in reminders) {
-      final dt = DateTime.parse(r['reminder_time']).toLocal();
-      final totalMinutes = dt.hour * 60 + dt.minute;
-      final block = _ReminderBlock(
+  final now = DateTime.now();
+  // Scroll only when looking at today
+  if (!(selectedDate.year == now.year &&
+      selectedDate.month == now.month &&
+      selectedDate.day == now.day)) {
+    return;
+  }
+
+  final totalMinutes = now.hour * 60 + now.minute;
+  final double targetOffset = totalMinutes * pixelsPerMinute - 300;
+
+  final maxScroll = _scrollController.position.maxScrollExtent;
+  final double clampedOffset =
+      targetOffset.clamp(0.0, maxScroll.isFinite ? maxScroll : 0.0);
+
+  _scrollController.animateTo(
+    clampedOffset,
+    duration: const Duration(milliseconds: 500),
+    curve: Curves.easeOutCubic,
+  );
+}
+
+
+List<Widget> _buildReminderCards() {
+  const double timelineLeft = 70.0;
+  const double horizontalPadding = 16.0;
+  const double cardSpacingX = 8.0;
+  final double availableWidth =
+      MediaQuery.of(context).size.width - timelineLeft - 40;
+
+  // group reminders by minute of day
+  final Map<int, List<_ReminderBlock>> groups = {};
+  for (var r in reminders) {
+    final dt = DateTime.parse(r['reminder_time']).toLocal();
+    final totalMinutes = dt.hour * 60 + dt.minute;
+    groups.putIfAbsent(totalMinutes, () => []).add(
+      _ReminderBlock(
         reminder: r,
         totalMinutes: totalMinutes,
         isPast: dt.isBefore(DateTime.now()),
         timeText: DateFormat('h:mm a').format(dt),
-      );
-      groups.putIfAbsent(totalMinutes, () => []).add(block);
-    }
+      ),
+    );
+  }
 
-    final List<Widget> cards = [];
-    groups.forEach((minute, list) {
-      final double top = minute * pixelsPerMinute - (cardHeight / 2);
-      final int count = list.length;
-      final double cardWidth = (availableWidth / count) - 10;
+  final List<Widget> cards = [];
 
-      for (int i = 0; i < list.length; i++) {
-        final block = list[i];
-        final double left = timelineLeft + 16 + (i * (cardWidth + 10));
+  groups.forEach((totalMinute, list) {
+    final int hour = totalMinute ~/ 60;
+    final int minute = totalMinute % 60;
 
-        cards.add(
-          Positioned(
-            top: top,
-            left: left,
-            height: cardHeight,
-            width: cardWidth,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.whiteClr,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.borderColor, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-                child: InkWell(
+    // base top of this hour section
+    final double hourTop = hour * pixelsPerHour;
+
+    // keep card fully inside [hourTop, hourTop + pixelsPerHour]
+    const double verticalPadding = 8.0;
+    final double usableHeight =
+        pixelsPerHour - (verticalPadding * 2) - cardHeight;
+    final double minuteOffset =
+        usableHeight <= 0 ? 0 : (minute / 60.0) * usableHeight;
+
+    // final top position – ALWAYS inside this hour section
+    final double top = hourTop + verticalPadding + minuteOffset;
+
+    final int count = list.length;
+    final double totalGaps = (count - 1) * cardSpacingX;
+    final double cardWidth = (availableWidth - totalGaps).clamp(40.0, availableWidth) / count;
+
+    for (int i = 0; i < list.length; i++) {
+      final block = list[i];
+      final double left =
+          timelineLeft + horizontalPadding + i * (cardWidth + cardSpacingX);
+
+      cards.add(
+        Positioned(
+          top: top,
+          left: left,
+          width: cardWidth,
+          height: cardHeight,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => _showReminderDetail(block.reminder),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteClr,
                   borderRadius: BorderRadius.circular(18),
-                  onTap: () => _showReminderDetail(block.reminder),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: block.isPast ? Colors.grey.shade400 : AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            block.reminder['title'] ?? 'Reminder',
-                            style: const TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          block.timeText,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                      ],
+                  border: Border.all(color: AppColors.borderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: block.isPast
+                            ? Colors.grey.shade400
+                            : AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        block.reminder['title'] ?? 'Reminder',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      block.timeText,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        );
-      }
-    });
+        ),
+      );
+    }
+  });
 
-    return cards;
-  }
+  return cards;
+}
 
   void _showReminderDetail(Map<String, dynamic> reminder) {
     final dt = DateTime.parse(reminder['reminder_time']).toLocal();
@@ -296,71 +354,98 @@ class _RemindersPageState extends State<RemindersPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(headerDate, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                Container(
-                  height: 40,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.whiteClr,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                  ),
-                  child: const Icon(Icons.add, color: Colors.black, size: 22),
-                ),
+               
               ],
             ),
           ),
 
           // Week Selector
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(7, (index) {
-                final day = weekDays[index];
-                final isSelected = day.year == selectedDate.year && day.month == selectedDate.month && day.day == selectedDate.day;
-
-                return GestureDetector(
-                  onTap: () {
-                    if (!isSelected) {
-                      setState(() => selectedDate = day);
-                      _fetchRemindersForDate();
-                    }
-                  },
-                  child: Column(
-                    children: [
-                      Text(
-                        dayNames[index],
-                        style: TextStyle(
-                          color: isSelected ? AppColors.secondary : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 44,
-                        width: 44,
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.secondary.withOpacity(0.15) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${day.day}',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? AppColors.secondary : Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+// Week Selector with arrows
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+  child: Column(
+    children: [
+      // Arrow navigation
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 26),
+            onPressed: _previousWeek,
+          ),
+          Text(
+            "${DateFormat('MMM d').format(_getWeekStart(selectedDate))} - "
+            "${DateFormat('MMM d').format(_getWeekStart(selectedDate).add(const Duration(days: 6)))}",
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 26),
+            onPressed: _nextWeek,
+          ),
+        ],
+      ),
+
+      const SizedBox(height: 8),
+
+      // Existing week days row (unchanged)
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(7, (index) {
+          final weekStart = _getWeekStart(selectedDate);
+          final day = weekStart.add(Duration(days: index));
+          final isSelected = day.year == selectedDate.year &&
+              day.month == selectedDate.month &&
+              day.day == selectedDate.day;
+
+          return GestureDetector(
+            onTap: () {
+              if (!isSelected) {
+                setState(() => selectedDate = day);
+                _fetchRemindersForDate();
+              }
+            },
+            child: Column(
+              children: [
+                Text(
+                  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index],
+                  style: TextStyle(
+                    color: isSelected ? AppColors.secondary : Colors.black54,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.secondary.withOpacity(0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "${day.day}",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppColors.secondary : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    ],
+  ),
+),
 
           const SizedBox(height: 16),
 

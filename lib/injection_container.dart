@@ -1,3 +1,4 @@
+import 'package:Maya/features/authentication/domain/repositories/tasks_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,7 @@ Future<void> init() async {
       sl(instanceName: 'protectedDio'),
     ),
   );
+  sl.registerLazySingleton<TasksRepository>(() => TasksRepository());
   sl.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(sl(), sl()),
   );

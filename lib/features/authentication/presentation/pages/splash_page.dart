@@ -1,10 +1,40 @@
+import 'package:Maya/core/network/api_client.dart';
+import 'package:Maya/features/authentication/domain/repositories/tasks_repository.dart';
+import 'package:Maya/injection_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_state.dart';
 
-class SplashPage extends StatelessWidget {
+class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
+
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> {
+
+  @override
+  void initState() {
+    super.initState();
+    _preloadTasks();
+  }
+
+  Future<void> _preloadTasks() async {
+    final repo = sl<TasksRepository>();
+    final api = sl<ApiClient>();
+
+    try {
+      await repo.preloadTasks(api);
+    } catch (e) {
+      print("Preload tasks error: $e");
+    }
+
+    if (!mounted) return;
+    // context.go('/tasks'); // navigate after preload
+  }
 
   @override
   Widget build(BuildContext context) {

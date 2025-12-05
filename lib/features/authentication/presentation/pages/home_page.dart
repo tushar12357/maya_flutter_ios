@@ -117,9 +117,11 @@ bool alreadySynced = _prefs.getBool('contacts_synced_once') ?? false;
 
 if (!alreadySynced) {
   _initializeAndSyncContacts();
-}      fetchReminders();
-    fetchToDos();
-    fetchTasks();
+}      Future.wait([
+  fetchReminders(),
+  fetchToDos(),
+  fetchTasks(),
+]);
     _startLiveLocationTracking();
 
   }
@@ -712,7 +714,7 @@ static const double navBarMarginBottom = 12.0;
                     const SizedBox(height: 10),
 
                     // ACTIVE TASKS
-                    _buildSectionHeader('Active Tasks', () => context.push('/tasks')),
+                    _buildSectionHeader('Active Tasks', () => context.go('/tasks')),
                     const SizedBox(height: 5),
                     if (isLoadingTasks)
                       ...List.generate(3, (_) => const TaskCardSkeleton())
@@ -723,7 +725,7 @@ static const double navBarMarginBottom = 12.0;
 
                     // REMINDERS
                   // REMINDERS
-_buildSectionHeader('Reminders', () => context.push('/reminders')),
+_buildSectionHeader('Reminders', () => context.go('/reminders')),
 const SizedBox(height: 15),
 if (isLoadingReminders)
   ...List.generate(3, (_) => const ReminderCardSkeleton())
@@ -732,7 +734,7 @@ else if (reminders.isEmpty)
 else
   ...reminders.map((r) => _buildReminderCard(r)), // ← FIXED: added (
                     // TO-DO
-                    _buildSectionHeader('To-Do', () => context.push('/todos')),
+                    _buildSectionHeader('To-Do', () => context.go('/todos')),
                     const SizedBox(height: 15),
                     if (isLoadingTodos)
                       ...List.generate(3, (_) => const TodoCardSkeleton())
@@ -814,7 +816,7 @@ else
       date: task.timestamp,
       status: statusText,
       color: statusColor,
-      onTap: () => context.push('/tasks/${task.id}', extra: {'query': task.query}),
+      onTap: () => context.go('/tasks/${task.id}', extra: {'query': task.query}),
     );
   }
 
@@ -829,12 +831,12 @@ else
       title: todo['title'] ?? 'Untitled',
       subtitle: todo['description'] ?? 'No description',
       progress: progress.clamp(0, 100),
-      onTap: () => completeToDo(todo),
+      onTap: () => context.go('/todos'),
     );
   }
 
   Widget _buildReminderCard(Map<String, dynamic> reminder) {
-    return ReminderCard(reminder: reminder);
+    return ReminderCard(reminder: reminder, onTap: () => context.go('/reminders'));
   }
 }
 
@@ -1139,7 +1141,9 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1173,15 +1177,13 @@ class TaskCard extends StatelessWidget {
                 const Icon(Icons.arrow_forward, color: Colors.black54, size: 16),
               ],
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
-
-// TodoCard, ReminderCard, Skeletons, FabNotchClipper, CustomBottomAppBar remain unchanged
-// (They now use AppColors.primary for accent and are fully orange-themed)
 
 class TodoCard extends StatelessWidget {
   final String title;
@@ -1253,14 +1255,17 @@ class TodoCard extends StatelessWidget {
 
 class ReminderCard extends StatelessWidget {
   final Map<String, dynamic> reminder;
-  const ReminderCard({super.key, required this.reminder});
+  final VoidCallback? onTap;
+  const ReminderCard({super.key, required this.reminder, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final dateText = reminder['reminder_time'] != null
         ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(reminder['reminder_time']).toLocal())
         : 'No date';
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1284,7 +1289,8 @@ class ReminderCard extends StatelessWidget {
               Text(dateText, style: const TextStyle(color: Colors.black54, fontSize: 14)),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
