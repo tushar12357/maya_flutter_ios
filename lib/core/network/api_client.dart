@@ -329,6 +329,16 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
+   Future<Map<String, dynamic>> fetchTasksHome() async {
+    final response = await get(
+      _protectedDio,
+      '/thunder/get-latest-tool-call-sessions',
+    );
+    print('fetchTasks response: ${response.data}');
+    print('fetchTasks statusCode: ${response.statusCode}');
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
+
   // Fetch Tasks Detail API
   Future<Map<String, dynamic>> fetchTasksDetail({
     required String sessionId,
@@ -419,6 +429,17 @@ class ApiClient {
     return {'statusCode': response.statusCode, 'data': response.data};
   }
 
+
+Future<Map<String, dynamic>> getToDoHome() async {
+    print('getToDo');
+    final response = await get(
+      _protectedDio,
+      '/productivity/todos/latest',
+    );
+    print('getToDo response: ${response.data}');
+    print('getToDo statusCode: ${response.statusCode}');
+    return {'statusCode': response.statusCode, 'data': response.data};
+  }
   // Update To-Do API
   Future<Map<String, dynamic>> updateToDo(Map<String, dynamic> payload) async {
     final response = await patch(
@@ -488,6 +509,21 @@ class ApiClient {
       _protectedDio,
       '/productivity/reminder/get',
       queryParameters: query,
+    );
+
+    return {'success': response.statusCode == 200, 'data': response.data};
+  }
+
+Future<Map<String, dynamic>> getRemindersHome({
+    int page = 1,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? timeFilter,
+  }) async {
+
+    final response = await get(
+      _protectedDio,
+      '/productivity/reminders/latest',
     );
 
     return {'success': response.statusCode == 200, 'data': response.data};
@@ -1035,5 +1071,7 @@ class ApiClient {
     final response = await _protectedDio.post('/productivity/asana/workspace/set', data: {'user_id': userId, 'workspace_id': workspaceId});
     return {'statusCode': response.statusCode, 'data': response.data};
   }
+
+
 
 }

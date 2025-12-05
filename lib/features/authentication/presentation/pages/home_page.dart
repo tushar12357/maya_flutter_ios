@@ -456,7 +456,7 @@ final userCountry = _getUserCountry();
    Future<void> fetchReminders() async {
     setState(() => isLoadingReminders = true);
     try {
-      final response = await _apiClient.getReminders(); // no params → latest
+      final response = await _apiClient.getRemindersHome(); // no params → latest
       if (response['success'] == true) {
         final List<dynamic> data = response['data']['data'] as List<dynamic>;
         setState(() {
@@ -480,7 +480,7 @@ final userCountry = _getUserCountry();
   Future<void> fetchToDos() async {
     setState(() => isLoadingTodos = true);
     try {
-      final response = await _apiClient.getToDo();
+      final response = await _apiClient.getToDoHome();
       if (response['statusCode'] == 200) {
         setState(() {
           todos = List<Map<String, dynamic>>.from(response['data']['data']);
@@ -496,7 +496,7 @@ final userCountry = _getUserCountry();
   Future<void> fetchTasks() async {
     setState(() => isLoadingTasks = true);
     try {
-      final response = await _apiClient.fetchTasks(page: 1);
+      final response = await _apiClient.fetchTasksHome();
       final data = response['data'];
       if (response['statusCode'] == 200 && data['success'] == true) {
         final List<dynamic> taskList =

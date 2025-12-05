@@ -10,7 +10,7 @@ class Integration {
   final String category;
   final List<String> scopes;
   final String imagePath;
-
+  bool isLoading = false;
   Integration({
     required this.id,
     required this.name,
@@ -21,5 +21,6 @@ class Integration {
     required this.category,
     required this.scopes,
     required this.imagePath,
+    this.isLoading = false,
   });
 }
