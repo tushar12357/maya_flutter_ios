@@ -1192,22 +1192,25 @@ class _VoiceChatCardState extends State<VoiceChatCard> {
                   ),
 
                 // Mic / End Call Button
-                GestureDetector(
-                  onTap: _isConnecting ? null : _toggleConnection,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _isConnected ? Colors.red : Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isConnected ? Icons.call_end : Icons.mic,
-                      color: _isConnected ? Colors.white : AppColors.primary,
-                      size: 22,
+               Padding(
+                  padding: const EdgeInsets.all(3.0),
+                  child: GestureDetector(
+                    onTap: _isConnecting ? null : _toggleConnection,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: _isConnected ? Colors.red : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Color(0xffFFFFFF).withOpacity(0.3))
+                      ),
+                      child: Icon(
+                        _isConnected ? Icons.call_end : Icons.mic,
+                        color: _isConnected ? Colors.white : AppColors.whiteClr,
+                        size: 22,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ),  ],
             ),
           ),
         ],
