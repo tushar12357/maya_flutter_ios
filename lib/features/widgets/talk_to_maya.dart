@@ -1,3 +1,4 @@
+import 'package:Maya/core/constants/colors.dart';
 import 'package:Maya/core/services/call_interruption_service.dart';
 import 'package:Maya/core/services/thunder_service.dart';
 import 'package:flutter/material.dart';
@@ -507,7 +508,7 @@ Widget build(BuildContext context) {
   final screenWidth = MediaQuery.of(context).size.width;
 
   return Scaffold(
-    backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.bgColor,
     resizeToAvoidBottomInset: true,
     body: SafeArea(
       child:

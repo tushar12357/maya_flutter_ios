@@ -13,24 +13,32 @@ class TaskDetailPage extends StatefulWidget {
   State<TaskDetailPage> createState() => _TaskDetailPageState();
 }
 
-class _TaskDetailPageState extends State<TaskDetailPage> {
+class _TaskDetailPageState extends State<TaskDetailPage> with SingleTickerProviderStateMixin{
+
+
+  late final TabController _tabController;
+  int _tabIndex = 0;
+
   late final ApiClient _apiClient;
   String? _sessionId;
   String _taskQuery = 'Task Details';
   List<Map<String, dynamic>> _subtasks = [];
   bool _isLoading = true;
   String? _errorMessage;
-
   // Dynamic fields
   String _title = '';
   String _description = 'No description provided.';
   String _status = 'Pending';
   String _category = 'Productivity';
-
+  String _createdAt = '';
   @override
   void initState() {
     super.initState();
     _apiClient = ApiClient(Dio(), Dio());
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(
+          () => setState(() => _tabIndex = _tabController.index),
+    );
   }
 
   @override
@@ -97,32 +105,45 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       if (tasks.isEmpty) throw Exception('No task found');
 
       final first = tasks.first as Map<String, dynamic>;
-
+      final createdAt =
+          first['created_at']?.toString() ?? ''; // Handle null safely
+      print("res $first");
       // Real execution status from API root
-      final String execStatus = (first['status']?.toString() ?? 'pending').toLowerCase();
-      final String displayStatus = {
-        'succeeded': 'Completed',
-        'completed': 'Completed',
-        'failed': 'Failed',
-        'pending': 'In Progress',
-        'running': 'Running',
-      }[execStatus] ?? 'Unknown';
+      final String execStatus = (first['status']?.toString() ?? 'pending')
+          .toLowerCase();
+      final String displayStatus =
+          {
+            'succeeded': 'Completed',
+            'completed': 'Completed',
+            'failed': 'Failed',
+            'pending': 'In Progress',
+            'running': 'Running',
+          }[execStatus] ??
+          'Unknown';
 
       final payload = _parse(first['user_payload']);
       final payloadData = _parse(payload['data']);
       final response = _parse(first['response']);
       final responseData = _parse(response['data']);
 
-      final title = payloadData['title'] ?? responseData['title'] ?? 'Untitled Task';
-      final description = (payloadData['description'] ?? responseData['description'] ?? '').toString().trim();
+      final title = payload['query'];
+      final description =
+          (payloadData['description'] ?? responseData['description'] ?? '')
+              .toString()
+              .trim();
 
       setState(() {
         _title = title;
-        _description = description.isEmpty ? 'No description provided.' : description;
+        _description = description.isEmpty
+            ? 'No description provided.'
+            : description;
         _status = displayStatus;
-        _category = (payload['service']?.toString() ?? 'productivity').capitalize();
+        _category = (payload['service']?.toString() ?? 'productivity')
+            .capitalize();
         _subtasks = tasks.cast<Map<String, dynamic>>();
         _isLoading = false;
+        _createdAt = createdAt;
+        print("_createdAt $_createdAt");
       });
     } catch (e) {
       setState(() {
@@ -132,58 +153,326 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     }
   }
 
+  bool isStatus = false;
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    Color textColor = Colors.green;
+
+    if (isStatus) {
+      final lower = _status.toLowerCase();
+      if (lower.contains('complete')) {
+        textColor = Colors.green.shade700;
+      } else if (lower.contains('fail')) {
+        textColor = Colors.red.shade700;
+      } else if (lower.contains('progress') || lower.contains('running')) {
+        textColor = AppColors.primary;
+      }
+    }
     if (_errorMessage != null) {
-      return Scaffold(body: Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.red))));
+      return Scaffold(
+        body: Center(
+          child: Text(
+            'Error: $_errorMessage',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
     }
 
     return SafeArea(
       top: false,
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.balckClr),
-            onPressed: () => context.go('/tasks'),
+          leading: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: CircleAvatar(
+              backgroundColor: AppColors.cardColor,
+              radius: 20,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.balckClr),
+                onPressed: () => context.go('/tasks'),
+              ),
+            ),
           ),
-          title: const Text('Task Detail', style: TextStyle(color: AppColors.balckClr, fontSize: 18)),
-          backgroundColor: AppColors.whiteClr,
+
+          title: const Text(
+            'Task Detail',
+            style: TextStyle(color: AppColors.balckClr, fontSize: 18),
+          ),
+          backgroundColor: AppColors.bgColor,
           elevation: 0,
         ),
         backgroundColor: AppColors.bgColor,
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 5),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Category Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: AppColors.borderColor, borderRadius: BorderRadius.circular(5)),
-                child: Text(_category, style: const TextStyle(fontSize: 14, color: AppColors.balckClr)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Color(0xffF8F8F8),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  _category,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xff6D6D6D),
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              // Title
-              Text(_title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              // Title4
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  SizedBox(
+                    width: 200,
+                    child: Text(
+                      _title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: textColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _status,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6,),
+              Text("20 sep 2025", style: TextStyle(color: Color(0xff6D6D6D))),
+              const SizedBox(height: 15),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  SizedBox(
+                    width: 200,
+                    child: Text(
+                      "1. Book Meeting",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xff374957),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: textColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _status,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Color(0xffF8F8F8),
+                      borderRadius: BorderRadius.circular(12),
+                      // border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.0),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+
+                        Row(
+                          children:
+                          ['Request Payload', 'Response Data',
+                            // 'Full JSON'
+                          ]
+                              .asMap()
+                              .entries
+                              .map((e) {
+                            final i = e.key;
+                            final title = e.value;
+                            final active = _tabIndex == i;
+                            return [
+                              GestureDetector(
+                                onTap: () => _tabController.animateTo(i),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: active
+                                        ? Color(0xffF29452)
+                                        : AppColors.whiteClr,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: active
+                                        ? null
+                                        : Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: active ? AppColors.cardColor : Colors.black,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ];
+                          })
+                              .expand((x) => x)
+                              .toList()
+                            ..removeLast(),
+                        ),
+                        const SizedBox(height: 5),
+
+                        _titles("Summary"),
+                        const SizedBox(height: 8),
+
+                        _paragraph(
+                          "At 11:46 AM (IST) on October 29, 2025, a GET request was made to the endpoint:",
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        _codeBox("/api/v1/tasks/TSK-4523"),
+                        const SizedBox(height: 8),
+
+                        _paragraph(
+                          "The request came from a Mac computer using Chrome browser (version 118).",
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _titles("Purpose of the Request"),
+                        const SizedBox(height: 6),
+
+                        _paragraph(
+                          "The user asked to fetch task details for Task ID: TSK-4523 along "
+                          "with some extra information, including:",
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        _bullet("Subtasks"),
+                        _bullet("Comments"),
+                        _bullet("Meeting details"),
+                        _bullet("Activity history"),
+
+                        const SizedBox(height: 20),
+
+                        _titles("User Authentication"),
+                        const SizedBox(height: 6),
+
+                        _paragraph(
+                          "The request was authorized using a Bearer Token, belonging to:",
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        _bullet("User ID: USR-3047"),
+                        _bullet("Role: UX Designer"),
+                        _bullet("Permissions: Read, Write, Delete, Share"),
+
+                        const SizedBox(height: 20),
+
+                        _titles("Client Information"),
+                        const SizedBox(height: 6),
+
+                        _bullet("IP Address: 103.56.78.90"),
+                        _bullet("Device: Desktop"),
+                        _bullet("Browser: Chrome 118"),
+                        _bullet("Operating System: macOS 10.15.7"),
+                        _bullet("Timezone: Asia/Kolkata"),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // const SizedBox(height: 10),
+              // _buildInfoRow(
+              //   Icons.calendar_today,
+              //   'Due Date',
+              //   DateFormat.yMMMd().format(DateTime.parse(_createdAt).toLocal()) // "Nov 30, 2025"
+              // ),
+              //
+              // _buildInfoRow(
+              //   Icons.access_time,
+              //   'Time',
+              //   DateFormat.jm().format(DateTime.parse(_createdAt).toLocal()),
+              // ),
+              // _buildInfoRow(
+              //   Icons.assignment,
+              //   'Task Status', _status,
+              //   isStatus: true,
+              // ),
               const SizedBox(height: 8),
-              Text(_description, style: TextStyle(fontSize: 16, color: Colors.grey.shade700)),
-
-              const SizedBox(height: 20),
-
-              // Info Rows (Priority removed)
-              _buildInfoRow(Icons.calendar_today, 'Due Date', 'Today, ${DateFormat('dd MMM yyyy').format(DateTime.now())}'),
-              _buildInfoRow(Icons.access_time, 'Time', DateFormat('hh:mm a').format(DateTime.now())),
-              _buildInfoRow(Icons.assignment, 'Task Status', _status, isStatus: true),
-
-              const SizedBox(height: 24),
 
               // Sub-tasks
-              ..._subtasks.map((subtask) => SubTaskCard(subtask: subtask, sessionId: _sessionId)),
-
+              ..._subtasks.map(
+                (subtask) =>
+                    SubTaskCard(subtask: subtask, sessionId: _sessionId),
+              ),
               const SizedBox(height: 40),
             ],
           ),
@@ -192,13 +481,97 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, {bool isStatus = false}) {
+  // 🔹 TAB BUTTON WIDGET
+  Widget _tabButton(String text, bool active) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xffFF8A34) : const Color(0xffFFF2E6),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: active ? Colors.white : const Color(0xffFF8A34),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  // 🔹 TITLE TEXT
+  Widget _titles(String t) {
+    return Text(
+      t,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: Colors.black,
+      ),
+    );
+  }
+
+  // 🔹 PARAGRAPH
+  Widget _paragraph(String t) {
+    return Text(
+      t,
+      style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.4),
+    );
+  }
+
+  // 🔹 BULLET POINT
+  Widget _bullet(String t) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("•  ", style: TextStyle(fontSize: 16)),
+          Expanded(
+            child: Text(
+              t,
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔹 CODE BOX
+  Widget _codeBox(String code) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xffF0F0F0),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        code,
+        style: const TextStyle(
+          fontFamily: "monospace",
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value, {
+    bool isStatus = false,
+  }) {
     Color textColor = AppColors.greyColor;
     if (isStatus) {
       final lower = value.toLowerCase();
-      if (lower.contains('complete')) textColor = Colors.green.shade700;
-      else if (lower.contains('fail')) textColor = Colors.red.shade700;
-      else if (lower.contains('progress') || lower.contains('running')) textColor = AppColors.primary;
+      if (lower.contains('complete')) {
+        textColor = Colors.green.shade700;
+      } else if (lower.contains('fail'))
+        textColor = Colors.red.shade700;
+      else if (lower.contains('progress') || lower.contains('running'))
+        textColor = AppColors.primary;
     }
 
     return Padding(
@@ -207,12 +580,22 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         children: [
           Icon(icon, color: Colors.grey, size: 20),
           const SizedBox(width: 16),
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 16))),
+          Expanded(
+            flex: 3,
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 16, color: textColor, fontWeight: isStatus ? FontWeight.w600 : null),
+              style: TextStyle(
+                fontSize: 16,
+                color: textColor,
+                fontWeight: isStatus ? FontWeight.w600 : null,
+              ),
             ),
           ),
         ],
@@ -221,7 +604,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   }
 }
 
-// Fully dynamic sub-task card with working tabs
 class SubTaskCard extends StatefulWidget {
   final Map<String, dynamic> subtask;
   final String? sessionId;
@@ -231,7 +613,8 @@ class SubTaskCard extends StatefulWidget {
   State<SubTaskCard> createState() => _SubTaskCardState();
 }
 
-class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStateMixin {
+class _SubTaskCardState extends State<SubTaskCard>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   int _tabIndex = 0;
 
@@ -239,7 +622,9 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() => setState(() => _tabIndex = _tabController.index));
+    _tabController.addListener(
+      () => setState(() => _tabIndex = _tabController.index),
+    );
   }
 
   @override
@@ -270,7 +655,10 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
 
   Widget _humanReadable(Map<String, dynamic> data) {
     if (data.isEmpty) {
-      return const Padding(padding: EdgeInsets.all(16), child: Text('No data', style: TextStyle(color: Colors.grey)));
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No data', style: TextStyle(color: Colors.grey)),
+      );
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -282,8 +670,8 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
           final display = value is bool
               ? (value ? 'Yes' : 'No')
               : value.toString().isEmpty
-                  ? '—'
-                  : value.toString();
+              ? '—'
+              : value.toString();
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 5),
@@ -293,12 +681,20 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
                 SizedBox(
                   width: 140,
                   child: Text(
-                    key.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' '),
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    key
+                        .split('_')
+                        .map((w) => w[0].toUpperCase() + w.substring(1))
+                        .join(' '),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 const Text(': ', style: TextStyle(fontWeight: FontWeight.w600)),
-                Expanded(child: Text(display, style: const TextStyle(fontSize: 14))),
+                Expanded(
+                  child: Text(display, style: const TextStyle(fontSize: 14)),
+                ),
               ],
             ),
           );
@@ -320,40 +716,74 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xffF8F8F8),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+        // border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.0),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Sub-Task', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Sub-Task',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
 
           // Tabs
           Row(
-            children: ['Request Payload', 'Response Data', 'Full JSON'].asMap().entries.map((e) {
-              final i = e.key;
-              final title = e.value;
-              final active = _tabIndex == i;
-              return [
-                GestureDetector(
-                  onTap: () => _tabController.animateTo(i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: active ? AppColors.primary : AppColors.borderColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: active ? null : Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(title,
-                        style: TextStyle(fontSize: 12, color: active ? Colors.white : Colors.black, fontWeight: FontWeight.w500)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ];
-            }).expand((x) => x).toList()..removeLast(),
+            children:
+                [
+                      'Request Payload', 'Response Data',
+                      // 'Full JSON'
+                    ]
+                    .asMap()
+                    .entries
+                    .map((e) {
+                      final i = e.key;
+                      final title = e.value;
+                      final active = _tabIndex == i;
+                      return [
+                        GestureDetector(
+                          onTap: () => _tabController.animateTo(i),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? Color(0xffF29452)
+                                  : AppColors.whiteClr,
+                              borderRadius: BorderRadius.circular(10),
+                              border: active
+                                  ? null
+                                  : Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: active
+                                    ? AppColors.cardColor
+                                    : Colors.black,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ];
+                    })
+                    .expand((x) => x)
+                    .toList()
+                  ..removeLast(),
           ),
           const SizedBox(height: 16),
 
@@ -368,9 +798,18 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
                 SingleChildScrollView(
                   child: Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(8)),
-                    child: SelectableText(_prettyJson(widget.subtask),
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      _prettyJson(widget.subtask),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -393,8 +832,6 @@ class _SubTaskCardState extends State<SubTaskCard> with SingleTickerProviderStat
           // ),
           // const SizedBox(height: 12),
           // Text('"$query"', style: TextStyle(fontSize: 15, color: Colors.grey.shade700, fontStyle: FontStyle.italic)),
-       
-       
         ],
       ),
     );

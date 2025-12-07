@@ -38,6 +38,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
   bool _isInitializing = false;
   String longUrl =
       'https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fmaya.ravan.ai%2Fapi%2Fcrm%2Fleadconnector%2Fcode&client_id=68755e91a1a7f90cd15877d5-me8gas4x&scope=socialplanner%2Fpost.readonly+saas%2Flocation.write+socialplanner%2Foauth.readonly+saas%2Flocation.read+socialplanner%2Foauth.write+conversations%2Freports.readonly+calendars%2Fresources.write+campaigns.readonly+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+calendars%2Fgroups.readonly+calendars%2Fgroups.write+calendars%2Fresources.readonly+calendars%2Fevents.write+calendars%2Fevents.readonly+calendars.write+calendars.readonly+businesses.write+businesses.readonly+conversations%2Flivechat.write+contacts.readonly+contacts.write+objects%2Fschema.readonly+objects%2Fschema.write+objects%2Frecord.readonly+objects%2Frecord.write+associations.write+associations.readonly+associations%2Frelation.readonly+associations%2Frelation.write+courses.write+courses.readonly+forms.readonly+forms.write+invoices.readonly+invoices.write+invoices%2Fschedule.readonly+invoices%2Fschedule.write+invoices%2Ftemplate.readonly+invoices%2Ftemplate.write+invoices%2Festimate.readonly+invoices%2Festimate.write+links.readonly+lc-email.readonly+links.write+locations%2FcustomValues.readonly+medias.write+medias.readonly+locations%2Ftemplates.readonly+locations%2Ftags.write+funnels%2Fredirect.readonly+funnels%2Fpage.readonly+funnels%2Ffunnel.readonly+oauth.write+oauth.readonly+opportunities.readonly+opportunities.write+socialplanner%2Fpost.write+socialplanner%2Faccount.readonly+socialplanner%2Faccount.write+socialplanner%2Fcsv.readonly+socialplanner%2Fcsv.write+socialplanner%2Fcategory.readonly+socialplanner%2Ftag.readonly+store%2Fshipping.readonly+socialplanner%2Fstatistics.readonly+store%2Fshipping.write+store%2Fsetting.readonly+surveys.readonly+store%2Fsetting.write+workflows.readonly+emails%2Fschedule.readonly+emails%2Fbuilder.write+emails%2Fbuilder.readonly+wordpress.site.readonly+blogs%2Fpost.write+blogs%2Fpost-update.write+blogs%2Fcheck-slug.readonly+blogs%2Fcategory.readonly+blogs%2Fauthor.readonly+socialplanner%2Fcategory.write+socialplanner%2Ftag.write+blogs%2Fposts.readonly+blogs%2Flist.readonly+charges.readonly+charges.write+marketplace-installer-details.readonly+twilioaccount.read+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2FsendLink.write+documents_contracts_template%2Flist.readonly+products%2Fcollection.write+products%2Fcollection.readonly+products%2Fprices.write+products%2Fprices.readonly+products.write+products.readonly+payments%2Fcustom-provider.write+payments%2Fcoupons.write+payments%2Fcustom-provider.readonly+payments%2Fcoupons.readonly+payments%2Fsubscriptions.readonly+payments%2Ftransactions.readonly+payments%2Fintegration.write+payments%2Fintegration.readonly+payments%2Forders.write+payments%2Forders.readonly+funnels%2Fredirect.write+funnels%2Fpagecount.readonly&version_id=68755e91a1a7f90cd15877d5';
+
   final _storage = const FlutterSecureStorage();
   late int _currentUserId;
   bool _isLoadingStatus = true;
@@ -203,77 +204,123 @@ class _IntegrationsPageState extends State<IntegrationsPage>
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-     return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-          backgroundColor: Colors.white70,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.black26, width: 1.4),
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            elevation: 0,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: BorderSide(color: Colors.white.withOpacity(0.2)),
             ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Connect Fireflies",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.black26),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: TextField(
-                    controller: keyController,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      hintText: "Enter value...",
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Connect Fireflies",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                GestureDetector(
-               onTap: () async {
-  final apiKey = keyController.text.trim();
-  if (apiKey.isEmpty) return;
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Paste your Fireflies API key below to enable transcription.",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
 
-  Navigator.of(context).pop();
-
-  await _saveFirefliesKey(apiKey);
-
-  // force refresh from backend after save
-  await _loadIntegrationStatus();
-                  },   child: Container(
-                    width: double.infinity,
-                    height: 40,
+                  // Input Box
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      gradient: const LinearGradient(
-                        colors: [AppColors.secondary, AppColors.primary],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withOpacity(0.08),
+                      border: Border.all(color: Colors.white.withOpacity(0.15)),
+                    ),
+                    child: TextField(
+                      controller: keyController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: "Enter API Key",
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
                       ),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      "Save",
-                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 18),
+
+                  // Buttons Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () async {
+                          final apiKey = keyController.text.trim();
+                          if (apiKey.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("API Key cannot be empty"),
+                              ),
+                            );
+                            return;
+                          }
+
+                          Navigator.pop(context);
+                          await _saveFirefliesKey(apiKey);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          child: const Text(
+                            "Save",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
     );
-  
-  
   }
 
   Future<void> _saveFirefliesKey(String apiKey) async {
@@ -622,18 +669,16 @@ class _IntegrationsPageState extends State<IntegrationsPage>
     }
   }
 
-Future<void> _onToggleIntegration(
-  Integration integration,
-  bool newValue,
-) async {
-  setState(() => integration.isLoading = true);
-
-  try {
+  Future<void> _onToggleIntegration(
+    Integration integration,
+    bool newValue,
+  ) async {
     if (newValue) {
+      // Turn ON -> call existing connect flow (Reconnect = A)
       if (integration.id == 'google-calendar') {
         await _handleGoogleSignIn(integration);
       } else if (integration.id == 'gohighlevel') {
-        await _launchURL(longUrl);
+        _launchURL(longUrl);
       } else if (integration.id == 'fireflies') {
         _showFirefliesKeyPopup();
       } else if (integration.id == 'asana') {
@@ -644,12 +689,10 @@ Future<void> _onToggleIntegration(
         await _handleStripeSignIn(integration);
       }
     } else {
+      // Turn OFF -> call disconnect API then reset local tokens/storage
       await _disconnectIntegrationApi(integration.id);
     }
-  } finally {
-    setState(() => integration.isLoading = false);
   }
-}
 
   List<dynamic> _extractAsanaWorkspaces(Map<String, dynamic> raw) {
     if (raw['data'] is List) {
@@ -728,17 +771,7 @@ Future<void> _onToggleIntegration(
                       title: const Text('Workspace'),
                       children: workspaces.map((ws) {
                         return ListTile(
-                          leading: ws['selected'] == true
-      ? const Icon(Icons.check_circle, color: Colors.green)
-      : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
-
-                          title: Text(
-    ws['name'],
-    style: TextStyle(
-      fontWeight: ws['selected'] == true ? FontWeight.bold : FontWeight.normal,
-      color: ws['selected'] == true ? Colors.green : Colors.black87,
-    ),
-  ),
+                          title: Text(ws['name']),
                           onTap: () async {
                             await getIt<ApiClient>().setAsanaWorkspace(
                               userId: _currentUserId,
@@ -780,7 +813,7 @@ Future<void> _onToggleIntegration(
     );
   }
 
-  void _openOAuthWebView(String url, String integrationName) {
+  void _launchUrl(String url, String integrationName) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -864,14 +897,14 @@ Future<void> _onToggleIntegration(
 
   Widget _buildIntegrationTile(Integration integration) {
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),),
+      color: AppColors.cardColor,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(10.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ------ MAIN ROW (icon, text, switch)
             Row(
               children: [
                 Container(
@@ -932,28 +965,11 @@ Future<void> _onToggleIntegration(
                   ),
                 ),
 
-                integration.isLoading
-    ? const SizedBox(
-        width: 32,
-        height: 32,
-        child: Padding(
-          padding: EdgeInsets.all(6),
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      )
-    : Switch(
-        value: integration.connected,
-        onChanged: (value) async {
-          await _onToggleIntegration(integration, value);
-        },
-      )
 
               ],
             ),
 
-            const SizedBox(height: 10),
-
-            // ------ MANAGE BUTTON (inside the card, full white background)
+            Divider(color: Color(0xffCFCFCF)),
             InkWell(
               onTap: () => _openManageSheet(integration),
               child: Container(
@@ -967,10 +983,26 @@ Future<void> _onToggleIntegration(
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.settings, size: 18, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('Manage', style: TextStyle(color: Colors.grey)),
+                  children: [
+                    const Icon(Icons.settings, size: 18, color: Color(0xff6D6D6D)),
+                    const SizedBox(width: 8),
+                    const Text('Manage', style: TextStyle(color: Color(0xff6D6D6D))),
+                    const Spacer(),
+                    Container(
+                      height: 0,
+                      child: Switch(
+                        value: integration.connected,
+                        activeColor: Color(0xffF97418),
+                        activeTrackColor: Color(0xffECB48D), // Track (background) color
+                        onChanged: (value) async {
+                          await _onToggleIntegration(integration, value);
+                          setState(() {
+                            integration.connected = value;
+                          });
+                        },
+                      )
+
+                    ),
                   ],
                 ),
               ),
@@ -1008,7 +1040,7 @@ Future<void> _onToggleIntegration(
             ),
           ],
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.bgColor,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarBrightness: Brightness.light,
@@ -1026,7 +1058,7 @@ Future<void> _onToggleIntegration(
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: integrations.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, __) => const SizedBox(height: 5),
               itemBuilder: (context, index) {
                 final integration = integrations[index];
                 return _buildIntegrationTile(integration);

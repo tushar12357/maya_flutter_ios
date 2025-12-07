@@ -27,7 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String fullName = "Loading...";
   String email = "";
   String phone = "";
-  String location = "Delhi, India";
+  String location = "";
   String bio = "UX/UI Designer passionate";
 
   String? _avatarUrl;
@@ -136,7 +136,7 @@ Widget _buildInfoRow({
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+          Text(title, style: const TextStyle(color: Color(0xff374957), fontSize: 15)),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -563,12 +563,12 @@ Future<void> _showChangePasswordDialog() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.bgColor,
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         color: AppColors.primary,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -578,9 +578,10 @@ Future<void> _showChangePasswordDialog() async {
                   InkWell(
                     onTap: () => context.go('/other'),
                     child: Container(
-                      height: 35,
-                      width: 35,
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xffB2B2B2)),
+                      height: 40,
+                      width: 40,
+                      decoration: const BoxDecoration(shape: BoxShape.circle,                       color: Color(0xffF8F8F8),
+),
                       child: const Icon(Icons.arrow_back_outlined, color: Colors.black, size: 17),
                     ),
                   ),
@@ -595,75 +596,103 @@ Future<void> _showChangePasswordDialog() async {
                 const SizedBox(height: 20),
                 _buildActionButtonsSkeleton(),
               ] else ...[
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppColors.greyColor,
-                      backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                          ? CachedNetworkImageProvider(_avatarUrl!) as ImageProvider
-                          : null,
-                      child: (_avatarUrl == null || _avatarUrl!.isEmpty)
-                          ? Text(
-                              fullName.isNotEmpty
-                                  ? fullName.trim().split(' ').first[0].toUpperCase()
-                                  : 'U',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.balckClr,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text(email, style: const TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: _isUploadingAvatar
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text(
-                                "Change Picture",
-                                style: TextStyle(fontSize: 12, color: Colors.white),
-                              ),
-                      ),
-                    ),
-                    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _isUploadingAvatar ? null : _removeProfilePicture,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade600,
-                            borderRadius: BorderRadius.circular(20),
+                
+             Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.cardColor,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.01),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+GestureDetector(
+  onTap: _showAvatarMenu,
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: AppColors.greyColor,
+    backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+        ? CachedNetworkImageProvider(_avatarUrl!) as ImageProvider
+        : null,
+    child: (_avatarUrl == null || _avatarUrl!.isEmpty)
+        ? Text(
+            fullName.isNotEmpty
+                ? fullName.trim().split(' ').first[0].toUpperCase()
+                : 'U',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.balckClr,
+            ),
+          )
+        : null,
+  ),
+),
+
+                  const SizedBox(width: 15),
+
+                  // NAME + EMAIL TEXT
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fullName,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: const Icon(Icons.delete, color: Colors.white),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          email,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // CHANGE PICTURE BUTTON
+                  GestureDetector(
+                    onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF29452),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 10),
+                      child: _isUploadingAvatar
+                          ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : const Text(
+                        "Change Picture",
+                        style: TextStyle(fontSize: 12, color: Colors.white),
+                      ),
+                    ),
+                  ),
+
+                  // REMOVE PICTURE BUTTON
+                 
+              
+              
+                ],
+              ),
+            ),    const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -686,9 +715,11 @@ Future<void> _showChangePasswordDialog() async {
                       const Divider(color: Color(0xffC1BEC9)),
                       _buildInfoRow(title: "Email", value: email),
                       const Divider(color: Color(0xffC1BEC9)),
-                      _buildInfoRow(title: "Phone", value: phone.isEmpty ? "Not set" : phone),
+                      _buildInfoRow(title: "Phone", value: phone.isEmpty ? "Not set" : phone, editable: true,
+                        onEdit: () => _showEditDialog("Phone", phone),),
                       const Divider(color: Color(0xffC1BEC9)),
-                      _buildInfoRow(title: "Location", value: location),
+                      _buildInfoRow(title: "Location", value: location.isEmpty ? "Not set" : location, editable: true,
+                        onEdit: () => _showEditDialog("Location", location),),
                       const Divider(color: Color(0xffC1BEC9)),
                     ],
                   ),
@@ -963,6 +994,58 @@ Future<void> _showChangePasswordDialog() async {
   }
 }
 
+void _showAvatarMenu() {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    backgroundColor: Colors.white,
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              ListTile(
+                leading: const Icon(Icons.photo_camera, color: Colors.black),
+                title: const Text("Change Picture",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadAvatar();
+                },
+              ),
+
+              if (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
+                    "Remove Picture",
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfilePicture();
+                  },
+                ),
+
+              const SizedBox(height: 6),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text("Cancel"),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
 
 

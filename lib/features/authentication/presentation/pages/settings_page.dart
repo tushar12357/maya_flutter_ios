@@ -1026,12 +1026,12 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: AppColors.balckClr, fontSize: 12),
+                style: const TextStyle(color: AppColors.primary, fontSize: 14),
               ),
               Text(
                 value,
                 style: const TextStyle(
-                  color: AppColors.balckClr,
+                  color: AppColors.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),

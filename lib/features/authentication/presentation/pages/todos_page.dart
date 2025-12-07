@@ -5,9 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 
-// ──────────────────────── Your Colors ────────────────────────
-
-// ──────────────────────── TodosPage ────────────────────────
 class TodosPage extends StatefulWidget {
   const TodosPage({super.key});
 
@@ -50,8 +47,9 @@ class _TodosPageState extends State<TodosPage> {
     }
     try {
       final response = await GetIt.I<ApiClient>().getToDo(page: page);
-      
-if (response['statusCode'] == 200 && response['data']['success'] == true) {
+
+      if (response['statusCode'] == 200 &&
+          response['data']['success'] == true) {
         final newTodos = List<Map<String, dynamic>>.from(
           response['data']['data'],
         );
@@ -65,7 +63,7 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
           hasMore = false;
           currentPage = page;
         });
-      } 
+      }
     } catch (e) {
       _showSnackBar('Error fetching todos: $e');
     } finally {
@@ -78,17 +76,16 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
 
   void _showSnackBar(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   Future<void> updateToDo(Map<String, dynamic> todo) async {
     try {
-      final currentStatus =
-          (todo['status']?.toString().toLowerCase() ?? '');
-      final newStatus =
-          currentStatus == 'completed' ? 'pending' : 'completed';
+      final currentStatus = (todo['status']?.toString().toLowerCase() ?? '');
+      final newStatus = currentStatus == 'completed' ? 'pending' : 'completed';
       final payload = GetIt.I<ApiClient>().prepareUpdateToDoPayload(
         todo['ID'],
         title: todo['title'],
@@ -103,7 +100,8 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
         _showSnackBar('To-Do updated successfully');
       } else {
         _showSnackBar(
-            'Failed to update: ${response['message'] ?? 'Unknown error'}');
+          'Failed to update: ${response['message'] ?? 'Unknown error'}',
+        );
       }
     } catch (e) {
       _showSnackBar('Error updating To-Do: $e');
@@ -129,51 +127,41 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
         });
         // TODO: filter logic when you have status field
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.secondary.withOpacity(0.2)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.secondary.withOpacity(0.2)
-                : Colors.grey.shade300,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              color: isSelected ? AppColors.primary : Color(0xff6D6D6D),
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              text,
-              style: TextStyle(
-                color: isSelected ? AppColors.secondary : Colors.black,
-                fontWeight: FontWeight.w500,
-                fontSize: 10,
-              ),
-            ),
-            const SizedBox(width: 3),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
+          const SizedBox(width: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.secondary.withOpacity(0.2)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
                 color: isSelected
-                    ? Colors.white.withOpacity(0.3)
+                    ? AppColors.secondary.withOpacity(0.2)
                     : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                count.toString().padLeft(2, '0'),
-                style: TextStyle(
-                  color: isSelected ? AppColors.secondary : Colors.black,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
-          ],
-        ),
+            child: Text(
+              count.toString().padLeft(2, '0'),
+              style: TextStyle(
+                color: isSelected ? AppColors.secondary : Color(0xff6D6D6D),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -183,43 +171,86 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
     final dateStr = DateFormat('EEEE, d MMM yyyy').format(today);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-   appBar: AppBar(
-  backgroundColor: Colors.white,
-  elevation: 0,
-  leading: IconButton(
-    icon: const Icon(Icons.arrow_back, color: Colors.black),
-    onPressed: () => context.go('/other'),
-  ),
-  // ← Add this line
-  titleSpacing: 0, // removes default extra spacing
-
-  title: Align(
-    alignment: Alignment.centerLeft, // ← forces left alignment
-    child: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'To-Do',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+      backgroundColor: AppColors.bgColor,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgColor,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircleAvatar(
+            backgroundColor: Colors.white,  // <-- white circular background
+            radius: 20,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.balckClr),
+              onPressed: () => context.go('/other'),
+            ),
           ),
         ),
-        Text(
-          'Manage personal To-Do\'s',
-          style: TextStyle(color: Colors.grey, fontSize: 12),
+
+        // ← Add this line
+        titleSpacing: 0, // removes default extra spacing
+
+        title: Align(
+          alignment: Alignment.centerLeft, // ← forces left alignment
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To-Do',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              Text(
+                'Manage personal To-Do\'s',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
         ),
-      ],
-    ),
-  ),
-),   body: Padding(
+      ),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Today's Task Header + New Task button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today\'s Task',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                  ],
+                ),
+
+
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                _buildFilterButton('All', 10, 0),
+                const SizedBox(width: 5),
+                _buildFilterButton('Open', 6, 1),
+                const SizedBox(width: 5),
+                _buildFilterButton('Close', 2, 2),
+                const SizedBox(width: 5),
+                _buildFilterButton('Archived', 2, 3),
+              ],
+            ),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -244,58 +275,54 @@ if (response['statusCode'] == 200 && response['data']['success'] == true) {
               ],
             ),
             const SizedBox(height: 20),
-         
+
             // Loading or List
             Expanded(
               child: isLoadingTodos
                   ? const Center(child: CircularProgressIndicator())
                   : todos.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No to-dos available',
-                            style: TextStyle(fontSize: 16),
+                  ? const Center(
+                      child: Text(
+                        'No to-dos available',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      itemCount: todos.length + (isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == todos.length) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        final todo = todos[index];
+                        final String status =
+                            (todo['status']?.toString().toLowerCase() ?? '');
+                        final bool isCompleted = status == 'completed';
+
+                        // Fake progress for demo – replace with real data later
+                        final double progress = isCompleted
+                            ? 1.0
+                            : (index % 4 == 0
+                                  ? 0.0
+                                  : index % 4 == 1
+                                  ? 0.75
+                                  : 0.20);
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: TaskCard(
+                            title: todo['title'] ?? 'Untitled Task',
+                            subtitle: todo['description'] ?? 'No description',
+                            date: _formatDueDate(todo),
+                            progress: progress,
+                            isCompleted: isCompleted,
+                            onToggle: () => updateToDo(todo),
                           ),
-                        )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          itemCount:
-                              todos.length + (isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == todos.length) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
-                            }
-                            final todo = todos[index];
-                            final String status = (todo['status']
-                                    ?.toString()
-                                    .toLowerCase() ??
-                                '');
-                            final bool isCompleted = status == 'completed';
-
-                            // Fake progress for demo – replace with real data later
-                            final double progress = isCompleted
-                                ? 1.0
-                                : (index % 4 == 0
-                                    ? 0.0
-                                    : index % 4 == 1
-                                        ? 0.75
-                                        : 0.20);
-
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 5),
-                              child: TaskCard(
-                                title: todo['title'] ?? 'Untitled Task',
-                                subtitle:
-                                    todo['description'] ?? 'No description',
-                                date: _formatDueDate(todo),
-                                progress: progress,
-                                isCompleted: isCompleted,
-                                onToggle: () => updateToDo(todo),
-                              ),
-                            );
-                          },
-                        ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -366,8 +393,9 @@ class TaskCard extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          decoration:
-                              isCompleted ? TextDecoration.lineThrough : null,
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -376,8 +404,9 @@ class TaskCard extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 12,
-                          decoration:
-                              isCompleted ? TextDecoration.lineThrough : null,
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                     ],
@@ -395,15 +424,12 @@ class TaskCard extends StatelessWidget {
                           ? AppColors.primary
                           : Colors.transparent,
                       border: Border.all(
-                        color: isCompleted
-                            ? AppColors.primary
-                            : Colors.grey,
+                        color: isCompleted ? AppColors.primary : Colors.grey,
                         width: 2,
                       ),
                     ),
                     child: isCompleted
-                        ? const Icon(Icons.check,
-                            color: Colors.white, size: 16)
+                        ? const Icon(Icons.check, color: Colors.white, size: 16)
                         : null,
                   ),
                 ),
@@ -441,8 +467,7 @@ class TaskCard extends StatelessWidget {
             // Date row
             Row(
               children: [
-                Icon(Icons.access_time,
-                    color: Colors.grey[500], size: 16),
+                Icon(Icons.access_time, color: Colors.grey[500], size: 16),
                 const SizedBox(width: 8),
                 Text(
                   date,
