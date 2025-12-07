@@ -34,6 +34,12 @@
 				<string>com.googleusercontent.apps.452755436213-kls0a46r5v4sido47mlvccr17s4uu90q</string>
 			</array>
 		</dict>
+		<dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.ravan.maya</string>
+    </array>
+  </dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>

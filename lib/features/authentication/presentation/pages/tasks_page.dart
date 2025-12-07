@@ -100,6 +100,16 @@ class _TasksPageState extends State<TasksPage> {
         return 'approval-pending';
       case 'scheduled':
         return 'scheduled';
+      case 'approved':
+        return 'approved';
+      case 'rejected':
+        return 'rejected';
+      case 'cancelled':
+        return 'cancelled';
+      case 'expired':
+        return 'expired';
+      case 'paused':
+        return 'paused';
       case 'all':
       default:
         return null;
@@ -176,6 +186,12 @@ class _TasksPageState extends State<TasksPage> {
     if (lower == 'pending') return 'pending';
     if (lower == 'approval-pending') return 'approval-pending';
     if (lower == 'scheduled') return 'scheduled';
+    if (lower == 'approved') return 'approved';
+    if (lower == 'rejected') return 'rejected';
+    if (lower == 'cancelled') return 'cancelled';
+    if (lower == 'expired') return 'expired';
+    if (lower == 'paused') return 'paused';
+    if (lower == 'resumed') return 'resumed';
     return 'pending';
   }
 
@@ -225,6 +241,15 @@ class _TasksPageState extends State<TasksPage> {
                     _tabButton("In Progress", selectedFilter == 'approval-pending'),
                     const SizedBox(width: 10),
                     _tabButton("Failed", selectedFilter == 'failed'),
+                    const SizedBox(width: 10),
+                    _tabButton("Approved", selectedFilter == 'approved'),
+                    const SizedBox(width: 10),
+                    _tabButton("Rejected", selectedFilter == 'rejected'),
+                    const SizedBox(width: 10),
+                    _tabButton("Scheduled", selectedFilter == 'scheduled'),
+                    const SizedBox(width: 10),
+                    _tabButton("Cancelled", selectedFilter == 'cancelled'),
+                    const SizedBox(width: 10),
                   ],
                 ),
               ),
@@ -292,6 +317,13 @@ Widget _tabButton(String title, bool active) {
         case "Pending": newFilter = 'pending'; break;
         case "In Progress": newFilter = 'approval-pending'; break;
         case "Failed": newFilter = 'failed'; break;
+        case "Approved": newFilter = 'approved'; break;
+        case "Rejected": newFilter = 'rejected'; break;
+        case "Scheduled": newFilter = 'scheduled'; break;
+        case "Cancelled": newFilter = 'cancelled'; break;
+        case "Expired": newFilter = 'expired'; break;
+        case "Paused": newFilter = 'paused'; break;
+        case "Resumed": newFilter = 'resumed'; break;
         default: newFilter = 'all';
       }
       if (selectedFilter != newFilter) {
@@ -340,6 +372,34 @@ Widget _tabButton(String title, bool active) {
       case 'approval-pending':
         tagColor = Colors.blue;
         statusText = "In Progress";
+        break;
+      case 'approved':
+        tagColor = Colors.green;
+        statusText = "Approved";
+        break;
+      case 'rejected':
+        tagColor = Colors.red;
+        statusText = "Rejected";
+        break;
+      case 'scheduled':
+        tagColor = Colors.blue;
+        statusText = "Scheduled";
+        break;
+      case 'cancelled':
+        tagColor = Colors.red;
+        statusText = "Cancelled";
+        break;
+      case 'expired':
+        tagColor = Colors.red;
+        statusText = "Expired";
+        break;
+      case 'paused':
+        tagColor = Colors.orange;
+        statusText = "Paused";
+        break;
+      case 'resumed':
+        tagColor = Colors.green;
+        statusText = "Resumed";
         break;
       default:
         tagColor = Colors.orange;

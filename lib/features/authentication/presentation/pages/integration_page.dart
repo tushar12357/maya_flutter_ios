@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:Maya/features/widgets/integration.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 class IntegrationsPage extends StatefulWidget {
   const IntegrationsPage({super.key});
@@ -18,18 +19,9 @@ class IntegrationsPage extends StatefulWidget {
   _IntegrationsPageState createState() => _IntegrationsPageState();
 }
 
-Future<void> _launchURL(String url) async {
-  try {
-    final Uri uri = Uri.parse(url); // <-- Remove Uri.encodeFull(url)
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      throw 'Could not launch $url';
-    }
-  } catch (e) {
-    print('Error launching URL: $e');
-  }
-}
+
+
+
 
 class _IntegrationsPageState extends State<IntegrationsPage>
     with WidgetsBindingObserver {
@@ -44,7 +36,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
   bool _isLoadingStatus = true;
   final List<Integration> integrations = [
     Integration(
-      id: 'google-calendar',
+      id: 'google',
       name: 'Google Calendar',
       description: 'Sync events with Google Calendar',
       icon: Icons.calendar_today,
@@ -143,6 +135,30 @@ class _IntegrationsPageState extends State<IntegrationsPage>
     super.dispose();
   }
 
+
+  Future<void> _launchURL(String url) async {
+  try {
+    final Uri uri = Uri.parse(url); // <-- Remove Uri.encodeFull(url)
+    if (await canLaunchUrl(uri)) {
+      // await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final result = await FlutterWebAuth2.authenticate(url: url, callbackUrlScheme: 'com.ravan.maya');
+      final uri = Uri.parse(result);
+      if (uri.host == "maya.ravan.ai") {
+  Navigator.pop(context); // closes auth view
+
+return;      }
+      print("result: $result");
+    
+
+    } else {
+      throw 'Could not launch $url';
+    }
+  } catch (e) {
+    print('Error launching URL: $e');
+  }
+}
+
+
   Future<void> _loadIntegrationStatus() async {
     try {
       final result = await getIt<ApiClient>().getIntegrationStatus();
@@ -154,7 +170,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
         setState(() {
           for (final integration in integrations) {
             switch (integration.id) {
-              case 'google-calendar':
+              case 'google':
                 integration.connected = data['google'] ?? false;
                 break;
               case 'gohighlevel':
@@ -367,10 +383,10 @@ class _IntegrationsPageState extends State<IntegrationsPage>
         setState(() {
           if (event is GoogleSignInAuthenticationEventSignIn) {
             _currentUser = event.user;
-            _updateIntegrationStatus(true, ['google-calendar']);
+            _updateIntegrationStatus(true, ['google']);
           } else if (event is GoogleSignInAuthenticationEventSignOut) {
             _currentUser = null;
-            _updateIntegrationStatus(false, ['google-calendar']);
+            _updateIntegrationStatus(false, ['google']);
           } else if (event is Error) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Google Sign-In error: $event')),
@@ -618,11 +634,11 @@ class _IntegrationsPageState extends State<IntegrationsPage>
     try {
       await _storage.delete(key: '${integrationId}_access_token');
       await _storage.delete(key: '${integrationId}_server_auth_code');
-      if (integrationId == 'google-calendar') {
+      if (integrationId == 'google') {
         await _googleSignIn.signOut();
         setState(() {
           _currentUser = null;
-          _updateIntegrationStatus(false, ['google-calendar']);
+          _updateIntegrationStatus(false, ['google']);
         });
       } else if (integrationId == 'fireflies') {
         await _storage.delete(key: 'fireflies_api_key');
@@ -675,7 +691,7 @@ class _IntegrationsPageState extends State<IntegrationsPage>
   ) async {
     if (newValue) {
       // Turn ON -> call existing connect flow (Reconnect = A)
-      if (integration.id == 'google-calendar') {
+      if (integration.id == 'google') {
         await _handleGoogleSignIn(integration);
       } else if (integration.id == 'gohighlevel') {
         _launchURL(longUrl);
@@ -970,44 +986,38 @@ class _IntegrationsPageState extends State<IntegrationsPage>
             ),
 
             Divider(color: Color(0xffCFCFCF)),
-            InkWell(
-              onTap: () => _openManageSheet(integration),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.settings, size: 18, color: Color(0xff6D6D6D)),
-                    const SizedBox(width: 8),
-                    const Text('Manage', style: TextStyle(color: Color(0xff6D6D6D))),
-                    const Spacer(),
-                    Container(
-                      height: 0,
-                      child: Switch(
-                        value: integration.connected,
-                        activeColor: Color(0xffF97418),
-                        activeTrackColor: Color(0xffECB48D), // Track (background) color
-                        onChanged: (value) async {
-                          await _onToggleIntegration(integration, value);
-                          setState(() {
-                            integration.connected = value;
-                          });
-                        },
-                      )
-
-                    ),
-                  ],
-                ),
-              ),
-            ),
+       Container(
+  width: double.infinity,
+  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+  child: Row(
+    children: [
+      GestureDetector(
+        onTap: () => _openManageSheet(integration),
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          children: [
+            const Icon(Icons.settings, size: 18, color: Color(0xff6D6D6D)),
+            const SizedBox(width: 8),
+            const Text('Manage', style: TextStyle(color: Color(0xff6D6D6D))),
           ],
+        ),
+      ),
+      const Spacer(),
+      Switch(
+        value: integration.connected,
+        activeColor: Color(0xffF97418),
+        activeTrackColor: Color(0xffECB48D),
+        onChanged: (value) async {
+          await _onToggleIntegration(integration, value);
+          setState(() {
+            integration.connected = value;
+          });
+        },
+      ),
+    ],
+  ),
+)
+   ],
         ),
       ),
     );

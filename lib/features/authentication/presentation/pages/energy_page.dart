@@ -54,16 +54,20 @@ class _EnergyPageState extends State<EnergyPage> {
                 children: [
                   _smallInfoCard(
                     "Energy Produced Today",
-                    widget.data['today'],
+                    widget.data['today'] ?? "0",
                     Colors.green.shade50,
                     Colors.green,
+                    "assets/energyproduct.png",
+
                   ),
                   const SizedBox(width: 12),
                   _smallInfoCard(
                     "This Week",
-                    widget.data['week'],
+                    widget.data['week'] ?? "0",
                     Colors.orange.shade50,
                     Colors.orange,
+                    "assets/thisweek.png",
+
                   ),
                 ],
               ),
@@ -73,16 +77,20 @@ class _EnergyPageState extends State<EnergyPage> {
                 children: [
                   _smallInfoCard(
                     "This Month",
-                    widget.data['month'],
+                    widget.data['month'] ?? "0",
                     Colors.blue.shade50,
                     Colors.blue,
+                    "assets/thismonth.png",
+
                   ),
                   const SizedBox(width: 12),
                   _smallInfoCard(
                     "Conversion Efficiency",
-                    "${widget.data['efficiency']}%",
+                    "${widget.data['efficiency'] ?? "0"}%",
                     Colors.lightBlue.shade50,
                     Colors.lightBlue,
+                    "assets/conversion.png",
+
                   ),
                 ],
               ),
@@ -169,35 +177,52 @@ class _EnergyPageState extends State<EnergyPage> {
     );
   }
 
-  // ---------------- SMALL INFO CARDS ----------------
   Widget _smallInfoCard(
-    String title,
-    dynamic value,
-    Color bgColor,
-    Color textColor,
-  ) {
+      String title,
+      dynamic value,
+      Color bgColor,
+      Color textColor,
+      String imagePath,
+      ) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(17),
+        height: 80,
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          color: Color(0xffF2F3F4),
+          color: const Color(0xffF2F3F4),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Color(0xffF59E0B),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.asset(
+                  imagePath,
+                  height: 18,
+                  width: 18,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xffF59E0B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
+
+
             Text(
               "$value",
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color(0xffF59E0B),
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -208,6 +233,8 @@ class _EnergyPageState extends State<EnergyPage> {
       ),
     );
   }
+
+
 
   Widget _usageDonutChart() {
     String selectedFilter = "Today";
